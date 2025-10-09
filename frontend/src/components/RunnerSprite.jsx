@@ -1,12 +1,12 @@
 import React from 'react';
 
 // Enhanced 2D runner sprite with improved animations and fun effects
-export default function RunnerSprite({ src = '/images/runner.png', size = 120, className = '', running = false }) {
+export default function RunnerSprite({ src = '/images/island_char.jpg', size = 120, className = '', running = false }) {
   return (
     <div className={`runner-sprite ${className} ${running ? 'is-running' : 'is-idle'}`} style={{ width: size, height: size }} aria-hidden>
       <div className="orient">
         <div className="character-container">
-          <img src={src} alt="Luffy character" />
+          <img src={src} alt="Island character" />
           <div className="sparkle-effect">
             <span className="sparkle spark-1">✨</span>
             <span className="sparkle spark-2">⭐</span>
@@ -39,11 +39,12 @@ export default function RunnerSprite({ src = '/images/runner.png', size = 120, c
           width: 100%; 
           height: 100%; 
           object-fit: contain; 
-          animation: enhanced-bob 0.8s ease-in-out infinite; 
+          animation: gentle-float 3s ease-in-out infinite; 
           image-rendering: -webkit-optimize-contrast; 
-          animation-play-state: var(--run-state, paused);
+          animation-play-state: running;
           filter: brightness(1.1) contrast(1.1);
           z-index: 10;
+          border-radius: 8px;
         }
         .sparkle-effect {
           position: absolute;
@@ -52,14 +53,14 @@ export default function RunnerSprite({ src = '/images/runner.png', size = 120, c
           width: 100%;
           height: 100%;
           pointer-events: none;
-          opacity: var(--sparkle-opacity, 0);
+          opacity: var(--sparkle-opacity, 0.5);
           z-index: 15;
         }
         .sparkle {
           position: absolute;
-          font-size: 12px;
-          animation: sparkle-float 2s ease-in-out infinite;
-          animation-play-state: var(--sparkle-state, paused);
+          font-size: 14px;
+          animation: sparkle-float 2.5s ease-in-out infinite;
+          animation-play-state: running;
         }
         .spark-1 {
           top: 10%;
@@ -69,12 +70,12 @@ export default function RunnerSprite({ src = '/images/runner.png', size = 120, c
         .spark-2 {
           top: 30%;
           left: 15%;
-          animation-delay: 0.7s;
+          animation-delay: 0.8s;
         }
         .spark-3 {
           top: 60%;
           left: 75%;
-          animation-delay: 1.4s;
+          animation-delay: 1.6s;
         }
         .runner-sprite .shadow { 
           position: absolute; 
@@ -84,9 +85,9 @@ export default function RunnerSprite({ src = '/images/runner.png', size = 120, c
           height: 12%; 
           background: radial-gradient(ellipse at center, rgba(0,0,0,0.4), rgba(0,0,0,0) 70%); 
           transform-origin: center; 
-          animation: enhanced-shadow-pulse 0.8s ease-in-out infinite; 
+          animation: gentle-shadow-pulse 3s ease-in-out infinite; 
           filter: blur(2px); 
-          animation-play-state: var(--run-state, paused);
+          animation-play-state: running;
         }
         .runner-sprite.is-running { 
           --run-state: running; 
@@ -95,24 +96,24 @@ export default function RunnerSprite({ src = '/images/runner.png', size = 120, c
           filter: drop-shadow(0 6px 18px rgba(255, 215, 0, 0.5)) drop-shadow(0 0 20px rgba(255, 165, 0, 0.3));
         }
         .runner-sprite.is-idle { 
-          --run-state: paused; 
-          --sparkle-state: paused;
-          --sparkle-opacity: 0.3;
+          --run-state: running; 
+          --sparkle-state: running;
+          --sparkle-opacity: 0.5;
           animation: idle-glow 3s ease-in-out infinite;
         }
-        @keyframes enhanced-bob { 
-          0% { transform: translateY(0px) scale(1); } 
-          25% { transform: translateY(-3px) scale(1.02); }
-          50% { transform: translateY(-8px) scale(1.05); } 
-          75% { transform: translateY(-3px) scale(1.02); }
-          100% { transform: translateY(0px) scale(1); } 
+        @keyframes gentle-float { 
+          0% { transform: translateY(0px) translateX(0px) scale(1); } 
+          25% { transform: translateY(-8px) translateX(3px) scale(1.02); }
+          50% { transform: translateY(-15px) translateX(0px) scale(1.04); } 
+          75% { transform: translateY(-8px) translateX(-3px) scale(1.02); }
+          100% { transform: translateY(0px) translateX(0px) scale(1); } 
         }
-        @keyframes enhanced-shadow-pulse { 
-          0% { transform: scale(1) scaleY(0.8); opacity: 0.4; } 
-          25% { transform: scale(1.1) scaleY(0.9); opacity: 0.5; }
-          50% { transform: scale(0.9) scaleY(0.7); opacity: 0.6; } 
-          75% { transform: scale(1.1) scaleY(0.9); opacity: 0.5; }
-          100% { transform: scale(1) scaleY(0.8); opacity: 0.4; } 
+        @keyframes gentle-shadow-pulse { 
+          0% { transform: scale(1) scaleY(0.8); opacity: 0.3; } 
+          25% { transform: scale(1.05) scaleY(0.85); opacity: 0.35; }
+          50% { transform: scale(0.95) scaleY(0.75); opacity: 0.4; } 
+          75% { transform: scale(1.05) scaleY(0.85); opacity: 0.35; }
+          100% { transform: scale(1) scaleY(0.8); opacity: 0.3; } 
         }
         @keyframes sparkle-float {
           0% { 
