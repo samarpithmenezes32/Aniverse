@@ -54,7 +54,7 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
     movieTRef.current = [];
   }, [seasonData, relatedMovies, DATA.length]);
 
-  // Position Luffy on the active island (only initial positioning, no automatic movement)
+  // Position character on the active island (only initial positioning, no automatic movement)
   useEffect(() => {
     if (!containerRef.current || !carRef.current) return;
     const idx = DATA.findIndex(s => s.key === activeSeason);
@@ -62,17 +62,17 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
     const target = posArr[idx];
     if (!target) return;
 
-    // Always position Luffy on the active island (for both initial load and season changes)
+    // Always position character on the active island (for both initial load and season changes)
     gsap.set(carRef.current, {
       x: target.x,
-      y: target.y - 30, // Position Luffy on top of the island art
+      y: target.y - 60, // Position character just above the island art
     });
     carRef.current.classList.add('is-idle');
     carRef.current.classList.remove('is-running');
     lastTRef.current = target;
   }, [DATA, activeSeason]); // Run when DATA or activeSeason changes
 
-  // Enhanced bouncing animation handler for Luffy movement between islands
+  // Enhanced bouncing animation handler for character movement between islands
   const handleSeasonClick = (seasonKey) => {
     if (onSelect && gsap) {
       const fromNode = document.querySelector('.season-node.island.active');
@@ -92,7 +92,7 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
             const currentX = gsap.getProperty(runner, "x");
             const currentY = gsap.getProperty(runner, "y");
             const deltaX = targetPos.x - currentX;
-            const deltaY = (targetPos.y - 30) - currentY; // Land on top of island art
+            const deltaY = (targetPos.y - 60) - currentY; // Land just above island art
             
             // Create bouncing jump animation
             gsap.timeline()
@@ -113,17 +113,17 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
               .to(runner, {
                 duration: 0.6,
                 x: targetPos.x, // Move to target X
-                y: targetPos.y - 80, // Arc height during travel
+                y: targetPos.y - 100, // Arc height during travel
                 ease: "power1.inOut",
               })
               .to(runner, {
                 duration: 0.3,
-                y: targetPos.y - 20, // Bounce down
+                y: targetPos.y - 50, // Bounce down
                 ease: "bounce.out"
               })
               .to(runner, {
                 duration: 0.2,
-                y: targetPos.y - 30, // Final position on top of island art
+                y: targetPos.y - 60, // Final position just above island art
                 scale: 1, // Return to normal size
                 ease: "power2.out",
                 onComplete: () => {

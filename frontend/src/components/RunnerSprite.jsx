@@ -45,6 +45,8 @@ export default function RunnerSprite({ src = '/images/island_char.jpg', size = 1
           filter: brightness(1.1) contrast(1.1);
           z-index: 10;
           border-radius: 8px;
+          background: #000000;
+          mix-blend-mode: lighten;
         }
         .sparkle-effect {
           position: absolute;
@@ -103,9 +105,9 @@ export default function RunnerSprite({ src = '/images/island_char.jpg', size = 1
         }
         @keyframes gentle-float { 
           0% { transform: translateY(0px) translateX(0px) scale(1); } 
-          25% { transform: translateY(-8px) translateX(3px) scale(1.02); }
-          50% { transform: translateY(-15px) translateX(0px) scale(1.04); } 
-          75% { transform: translateY(-8px) translateX(-3px) scale(1.02); }
+          25% { transform: translateY(-3px) translateX(2px) scale(1.01); }
+          50% { transform: translateY(-5px) translateX(0px) scale(1.02); } 
+          75% { transform: translateY(-3px) translateX(-2px) scale(1.01); }
           100% { transform: translateY(0px) translateX(0px) scale(1); } 
         }
         @keyframes gentle-shadow-pulse { 
