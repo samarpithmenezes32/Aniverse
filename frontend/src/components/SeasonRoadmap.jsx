@@ -46,7 +46,7 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
       const r = node.getBoundingClientRect();
       // Position relative to the islands wrapper, not the main container
       const cx = r.left - wrapperRect.left + r.width / 2;
-      const cy = r.top - wrapperRect.top + r.height * 0.2; // Position at the top of the island (20% from top)
+      const cy = r.top - wrapperRect.top + r.height * 0.35; // Position closer to island center
       arr.push({ x: cx, y: cy });
     });
     nodeTRef.current = arr;
@@ -65,7 +65,7 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
     // Always position character on the active island (for both initial load and season changes)
     gsap.set(carRef.current, {
       x: target.x,
-      y: target.y - 40, // Position character floating just above the island top
+      y: target.y - 50, // Position character floating just above the island
     });
     carRef.current.classList.add('is-idle');
     carRef.current.classList.remove('is-running');
@@ -92,7 +92,7 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
             const currentX = gsap.getProperty(runner, "x");
             const currentY = gsap.getProperty(runner, "y");
             const deltaX = targetPos.x - currentX;
-            const deltaY = (targetPos.y - 40) - currentY; // Land floating just above island top
+            const deltaY = (targetPos.y - 50) - currentY; // Land floating just above island
             
             // Create bouncing jump animation
             gsap.timeline()
@@ -102,7 +102,7 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
               })
               .to(runner, {
                 duration: 0.4,
-                y: currentY - 50, // Jump up first
+                y: currentY - 40, // Jump up first
                 ease: "power2.out",
                 onStart: () => {
                   setIsRunning(true);
@@ -113,17 +113,17 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
               .to(runner, {
                 duration: 0.6,
                 x: targetPos.x, // Move to target X
-                y: targetPos.y - 80, // Arc height during travel
+                y: targetPos.y - 70, // Arc height during travel
                 ease: "power1.inOut",
               })
               .to(runner, {
                 duration: 0.3,
-                y: targetPos.y - 35, // Bounce down
+                y: targetPos.y - 45, // Bounce down
                 ease: "bounce.out"
               })
               .to(runner, {
                 duration: 0.2,
-                y: targetPos.y - 40, // Final position floating above island top
+                y: targetPos.y - 50, // Final position floating above island
                 scale: 1, // Return to normal size
                 ease: "power2.out",
                 onComplete: () => {

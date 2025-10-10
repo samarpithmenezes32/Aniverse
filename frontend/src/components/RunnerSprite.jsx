@@ -21,7 +21,7 @@ export default function RunnerSprite({ src = '/images/island_char2.jpg', size = 
           position: relative; 
           display: inline-block; 
           pointer-events: none; 
-          filter: drop-shadow(0 4px 12px rgba(255, 215, 0, 0.3));
+          filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6));
         }
         .runner-sprite .orient { 
           width: 100%; 
@@ -42,11 +42,11 @@ export default function RunnerSprite({ src = '/images/island_char2.jpg', size = 
           animation: gentle-float 3s ease-in-out infinite; 
           image-rendering: -webkit-optimize-contrast; 
           animation-play-state: running;
-          filter: brightness(1.1) contrast(1.1);
+          filter: brightness(1.05) contrast(1.05) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
           z-index: 10;
-          border-radius: 8px;
-          background: #000000;
-          mix-blend-mode: lighten;
+          border-radius: 0;
+          background: transparent;
+          mix-blend-mode: normal;
         }
         .sparkle-effect {
           position: absolute;
@@ -95,7 +95,7 @@ export default function RunnerSprite({ src = '/images/island_char2.jpg', size = 
           --run-state: running; 
           --sparkle-state: running;
           --sparkle-opacity: 1;
-          filter: drop-shadow(0 6px 18px rgba(255, 215, 0, 0.5)) drop-shadow(0 0 20px rgba(255, 165, 0, 0.3));
+          filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 15px rgba(255, 215, 0, 0.2));
         }
         .runner-sprite.is-idle { 
           --run-state: running; 
@@ -105,9 +105,9 @@ export default function RunnerSprite({ src = '/images/island_char2.jpg', size = 
         }
         @keyframes gentle-float { 
           0% { transform: translateY(0px) translateX(0px) scale(1); } 
-          25% { transform: translateY(-3px) translateX(2px) scale(1.01); }
-          50% { transform: translateY(-5px) translateX(0px) scale(1.02); } 
-          75% { transform: translateY(-3px) translateX(-2px) scale(1.01); }
+          25% { transform: translateY(-4px) translateX(2px) scale(1.01); }
+          50% { transform: translateY(-7px) translateX(0px) scale(1.02); } 
+          75% { transform: translateY(-4px) translateX(-2px) scale(1.01); }
           100% { transform: translateY(0px) translateX(0px) scale(1); } 
         }
         @keyframes gentle-shadow-pulse { 
@@ -137,13 +137,13 @@ export default function RunnerSprite({ src = '/images/island_char2.jpg', size = 
         }
         @keyframes idle-glow {
           0% { 
-            filter: drop-shadow(0 4px 12px rgba(255, 215, 0, 0.3)); 
+            filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6)); 
           }
           50% { 
-            filter: drop-shadow(0 6px 16px rgba(255, 215, 0, 0.5)) drop-shadow(0 0 25px rgba(255, 165, 0, 0.2)); 
+            filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 20px rgba(255, 215, 0, 0.15)); 
           }
           100% { 
-            filter: drop-shadow(0 4px 12px rgba(255, 215, 0, 0.3)); 
+            filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6)); 
           }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -154,7 +154,7 @@ export default function RunnerSprite({ src = '/images/island_char2.jpg', size = 
             animation: none !important; 
           }
           .runner-sprite { 
-            filter: drop-shadow(0 4px 12px rgba(255, 215, 0, 0.3)) !important; 
+            filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6)) !important; 
           }
         }`
         }</style>
