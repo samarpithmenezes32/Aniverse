@@ -1,7 +1,7 @@
 import React from 'react';
 
 // Enhanced 2D runner sprite with improved animations and fun effects
-export default function RunnerSprite({ src = '/images/island_char.jpg', size = 120, className = '', running = false }) {
+export default function RunnerSprite({ src = '/images/island_char2.jpg', size = 120, className = '', running = false }) {
   return (
     <div className={`runner-sprite ${className} ${running ? 'is-running' : 'is-idle'}`} style={{ width: size, height: size }} aria-hidden>
       <div className="orient">
