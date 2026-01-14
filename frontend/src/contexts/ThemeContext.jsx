@@ -26,12 +26,16 @@ export const ThemeProvider = ({ children }) => {
     }
   }, []);
 
-  // Apply theme class to body
+  // Apply theme class to body and html
   useEffect(() => {
     if (isDark) {
+      document.documentElement.classList.add('dark-theme');
+      document.documentElement.classList.remove('light-theme');
       document.body.classList.add('dark-theme');
       document.body.classList.remove('light-theme');
     } else {
+      document.documentElement.classList.add('light-theme');
+      document.documentElement.classList.remove('dark-theme');
       document.body.classList.add('light-theme');
       document.body.classList.remove('dark-theme');
     }

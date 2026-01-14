@@ -115,7 +115,7 @@ exports.search = async (req, res) => {
         { synopsis: { $regex: wordSearchRegex } } // Synopsis match
       ]
     })
-    .select('title title_english image mal_id year rating genres type episodes status')
+    .select('title title_english image mal_id year rating genres type totalEpisodes status')
     .limit(limit)
     .lean();
 

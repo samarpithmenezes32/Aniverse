@@ -7,6 +7,12 @@
 /* === LINEICONS === */
 @import url('https://cdn.lineicons.com/3.0/lineicons.css');
 
+/* === PREVENT OVERSCROLL WHITE BACKGROUND === */
+* {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* === JAPAN RAMEN FONT === */
 /* 
  * Font: Japan Ramen by Makna Studio
@@ -99,25 +105,19 @@ body {
   text-rendering: optimizeLegibility;
   transition: all var(--transition-base);
   min-height: 100vh;
+  width: 100%;
+  position: relative;
 }
 
 /* Light theme (default) */
 body.light-theme {
-  background: 
-    radial-gradient(circle at 25% 25%, rgba(212,175,55,0.03) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(232,180,184,0.03) 0%, transparent 50%),
-    linear-gradient(135deg, #fefefe 0%, #f8f6f0 100%);
-  background-attachment: fixed;
+  background: transparent;
   color: var(--color-text);
 }
 
 /* Dark theme */
 body.dark-theme {
-  background:
-    radial-gradient(circle at 25% 25%, rgba(212,175,55,0.05) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(232,180,184,0.03) 0%, transparent 50%),
-    linear-gradient(135deg, var(--luxury-onyx) 0%, var(--luxury-charcoal) 100%);
-  background-attachment: fixed;
+  background: transparent;
   color: var(--color-text);
   
   /* Override variables for dark theme */
@@ -175,8 +175,56 @@ h3 {
 }
 
 /* === GLOBAL STYLES === */
-html, body, #__next { 
-  min-height: 100%; 
+html {
+  min-height: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  background: var(--color-bg);
+  position: fixed;
+  width: 100%;
+  top: 0;
+  left: 0;
+}
+
+html.light-theme {
+  background: 
+    radial-gradient(circle at 25% 25%, rgba(212,175,55,0.03) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(232,180,184,0.03) 0%, transparent 50%),
+    linear-gradient(135deg, #fefefe 0%, #f8f6f0 100%);
+  background-attachment: fixed;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+html.dark-theme {
+  background:
+    radial-gradient(circle at 25% 25%, rgba(212,175,55,0.05) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(232,180,184,0.03) 0%, transparent 50%),
+    linear-gradient(135deg, var(--luxury-onyx) 0%, var(--luxury-charcoal) 100%);
+  background-attachment: fixed;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+body { 
+  min-height: 100vh;
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: transparent;
+}
+
+#__next {
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  background: transparent;
 }
 
 * { 

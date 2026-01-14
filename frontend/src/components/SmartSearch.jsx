@@ -96,24 +96,27 @@ const SmartSearch = ({ isOpen, onClose }) => {
     try {
       // Search from multiple sources
       const [jikanRes, localRes] = await Promise.allSettled([
-        axios.get(`/api/jikan/search?q=${encodeURIComponent(searchQuery)}&limit=15`),
-        axios.get(`/api/anime/search?q=${encodeURIComponent(searchQuery)}&limit=15`)
+        axios.get(`/api/jikan/search?q=${encodeURIComponent(searchQuery)}&limit=25`),
+        axios.get(`/api/anime/search?q=${encodeURIComponent(searchQuery)}&limit=25`)
       ]);
 
       let allResults = [];
 
-      // Combine results from Jikan
-      if (jikanRes.status === 'fulfilled' && jikanRes.value?.data?.data) {
-        allResults = jikanRes.value.data.data.map(item => ({
+      // Combine results from Jikan - check both data.data and data.anime formats
+      if (jikanRes.status === 'fulfilled' && jikanRes.value?.data) {
+        const jikanData = jikanRes.value.data.data || jikanRes.value.data.anime || [];
+        const jikanItems = Array.isArray(jikanData) ? jikanData : [];
+        console.log('Jikan search results:', jikanItems.length, 'items');
+        allResults = jikanItems.map(item => ({
           mal_id: item.mal_id,
-          title: item.title,
-          title_english: item.title_english,
-          image: item.images?.jpg?.image_url || item.images?.jpg?.large_image_url,
+          title: item.title || item.titles?.[0]?.title,
+          title_english: item.title_english || item.titles?.find(t => t.type === 'English')?.title,
+          image: item.images?.jpg?.image_url || item.images?.jpg?.large_image_url || item.image,
           year: item.year || item.aired?.prop?.from?.year,
-          score: item.score,
+          score: item.score || item.rating,
           type: item.type,
           episodes: item.episodes,
-          genres: item.genres?.map(g => g.name) || [],
+          genres: Array.isArray(item.genres) ? (typeof item.genres[0] === 'string' ? item.genres : item.genres.map(g => g.name)) : [],
           synopsis: item.synopsis,
           source: 'jikan'
         }));
@@ -121,23 +124,29 @@ const SmartSearch = ({ isOpen, onClose }) => {
 
       // Add local database results
       if (localRes.status === 'fulfilled' && localRes.value?.data) {
-        const localAnime = localRes.value.data.map(item => ({
+        const localData = Array.isArray(localRes.value.data) ? localRes.value.data : (localRes.value.data.animes || localRes.value.data.anime || []);
+        console.log('Local search results:', localData.length, 'items');
+        const localAnime = localData.map(item => ({
           _id: item._id,
           mal_id: item.mal_id,
           title: item.title,
           title_english: item.title_english,
-          image: item.image,
+          image: item.image || item.poster,
           year: item.year,
           score: item.rating,
           genres: item.genres || [],
           type: item.type,
-          episodes: item.episodes,
-          synopsis: item.synopsis,
+          episodes: item.totalEpisodes || (Array.isArray(item.episodes) ? item.episodes.length : item.episodes),
+          synopsis: item.synopsis || item.description,
           source: 'local'
         }));
         allResults = [...allResults, ...localAnime];
+      } else if (localRes.status === 'rejected') {
+        console.log('Local search failed:', localRes.reason?.message);
       }
 
+      console.log('Total results before dedup:', allResults.length);
+      
       // Remove duplicates (prefer Jikan source)
       const seen = new Set();
       const unique = allResults.filter(item => {
@@ -148,14 +157,18 @@ const SmartSearch = ({ isOpen, onClose }) => {
       });
 
       // Apply fuzzy matching and sort by relevance
-      const scored = unique.map(item => ({
-        ...item,
-        relevance: fuzzyMatch(item.title, searchQuery)
-      })).filter(item => item.relevance > 0);
+      // Be more permissive - if API returned it, it's likely relevant
+      const scored = unique.map(item => {
+        const titleScore = fuzzyMatch(item.title || '', searchQuery);
+        const englishScore = item.title_english ? fuzzyMatch(item.title_english, searchQuery) : 0;
+        // Use the best score, with a minimum baseline since API already filtered
+        const relevance = Math.max(titleScore, englishScore, 100);
+        return { ...item, relevance };
+      });
 
       scored.sort((a, b) => b.relevance - a.relevance);
 
-      setResults(scored.slice(0, 12)); // Top 12 results
+      setResults(scored.slice(0, 20)); // Top 20 results
       setSelectedIndex(0);
     } catch (error) {
       console.error('Search error:', error);
@@ -321,19 +334,19 @@ const SmartSearch = ({ isOpen, onClose }) => {
                   >
                     {result.image && (
                       <div className="result-image-wrapper">
-                        <img src={result.image} alt={result.title} className="result-image" />
+                        <img src={result.image} alt={result.title || 'Anime'} className="result-image" />
                       </div>
                     )}
                     <div className="result-info">
-                      <div className="result-title">{result.title}</div>
+                      <div className="result-title">{result.title || result.title_english || 'Unknown Title'}</div>
                       {result.title_english && result.title !== result.title_english && (
                         <div className="result-subtitle">{result.title_english}</div>
                       )}
                       <div className="result-meta">
                         {result.year && <span className="meta-year">{result.year}</span>}
                         {result.type && <span className="meta-type">{result.type}</span>}
-                        {result.score && <span className="meta-score">⭐ {result.score.toFixed(1)}</span>}
-                        {result.episodes && <span className="meta-episodes">{result.episodes} eps</span>}
+                        {result.score && typeof result.score === 'number' && <span className="meta-score">⭐ {result.score.toFixed(1)}</span>}
+                        {(typeof result.episodes === 'number' && result.episodes > 0) && <span className="meta-episodes">{result.episodes} eps</span>}
                       </div>
                       {result.genres && result.genres.length > 0 && (
                         <div className="result-genres">

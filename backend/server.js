@@ -24,8 +24,39 @@ function log(stage, info) {
   console.log(`[DB:${stage}] ${ts} :: ${info}`);
 }
 
+// CORS Configuration - Add your production frontend URL here
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  // Add your Vercel deployment URL here after deploying
+  // Example: 'https://your-app.vercel.app',
+  // Example: 'https://aniverse.vercel.app',
+];
+
+// Add environment variable support for dynamic origins
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      console.log(`[CORS] Blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 // Mount webhook BEFORE JSON parsing to preserve raw body for signature verification
 const stripeWebhook = require('./routes/stripeWebhook');
 app.use('/api/stripe/webhook', stripeWebhook);

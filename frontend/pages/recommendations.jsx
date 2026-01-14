@@ -692,29 +692,6 @@ const RecommendationsPage = () => {
               </div>
             </div>
           )}
-          <div className="recommendation-section">
-            <h2 className="section-title">{(SEASONS.find(s => s.key === season)?.label || 'Season')} Picks</h2>
-            {loading && <div className="loading-small" role="status">Loading...</div>}
-            {!loading && recommendations.length === 0 && (
-              <div className="empty" role="status">No recommendations yet.</div>
-            )}
-            <div className="rec-grid">
-              {recommendations.map(anime => (
-                <div key={anime._id || anime.id} className="rec-card" aria-label={anime.title}>
-                  <div className="poster" onClick={() => handleAnimeClick(anime)} role="button" tabIndex={0} onKeyDown={(e)=>{ if(e.key==='Enter') handleAnimeClick(anime); }}>
-                    <PosterImage title={anime.title} src={anime.image || anime.poster} alt={anime.title} />
-                  </div>
-                  <div className="info">
-                    <h3 className="title">{anime.title}</h3>
-                    {anime.genres && <div className="genres">{anime.genres.slice(0,3).join(', ')}</div>}
-                    <div className="actions">
-                      <button onClick={() => handleSelectAnime(anime)} className="details-btn">Details</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
           {/* Special category: Top Movies */}
           {topMovies.length > 0 && (
             <div className="recommendation-section">

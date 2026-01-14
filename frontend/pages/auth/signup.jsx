@@ -4,20 +4,20 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 
 export default function SignupPage() {
-  const { signup } = useAuth();
+  const { register } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const result = await signup(email, password, name);
+    const result = await register({ email, password, username });
     if (result.success) {
       router.push('/recommendations');
     } else {
-      setError(result.message || 'Signup failed');
+      setError(result.error || 'Signup failed');
     }
   };
 
@@ -32,8 +32,8 @@ export default function SignupPage() {
             <label>Name</label>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
               style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem' }}
             />
