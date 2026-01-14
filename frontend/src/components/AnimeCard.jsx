@@ -63,16 +63,22 @@ export default function AnimeCard({ anime }) {
           }
           .card-title {
             margin:0 0 .5rem;
-            font-weight: 600;
-            font-size:1.05rem;
+            font-weight: 700;
+            font-size:1.1rem;
             color: var(--color-text);
             line-height:1.4;
+            font-family: 'Cinzel', 'Playfair Display', 'Georgia', serif;
+            letter-spacing: 0.5px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
           }
           .card-genres {
             margin:0;
-            font-size:0.9rem;
+            font-size:0.85rem;
             color:var(--color-text-dim);
-            opacity:0.7;
+            opacity:0.8;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            letter-spacing: 0.3px;
+            font-weight: 400;
           }
         `}</style>
       </a>

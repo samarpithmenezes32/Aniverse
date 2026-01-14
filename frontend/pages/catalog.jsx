@@ -35,10 +35,14 @@ export default function CatalogPage() {
         const limit = 24;
         let data;
         if (query) {
-          const resp = await axios.get(`/api/jikan/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`);
+          const resp = await axios.get(`/api/jikan/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`, {
+            timeout: 5000 // Add 5s timeout for faster error handling
+          });
           data = resp.data;
         } else {
-          const resp = await axios.get(`/api/jikan/top?page=${page}&limit=${limit}`);
+          const resp = await axios.get(`/api/jikan/top?page=${page}&limit=${limit}`, {
+            timeout: 5000
+          });
           data = resp.data;
         }
         if (!mounted) return;

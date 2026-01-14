@@ -25,14 +25,14 @@ export default function App({ Component, pageProps }) {
     const start = () => {
       if (!overlayRef.current) return;
       overlayRef.current.style.pointerEvents = 'auto';
-      anime({ targets: overlayRef.current, opacity: [0, 1], duration: 180, easing: 'easeOutQuad' });
+      anime({ targets: overlayRef.current, opacity: [0, 1], duration: 120, easing: 'easeOutQuad' });
     };
     const done = () => {
       if (!overlayRef.current) return;
       anime({
         targets: overlayRef.current,
         opacity: [1, 0],
-        duration: 280,
+        duration: 150,
         easing: 'easeInQuad',
         complete: () => { if (overlayRef.current) overlayRef.current.style.pointerEvents = 'none'; },
       });

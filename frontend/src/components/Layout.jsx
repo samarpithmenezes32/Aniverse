@@ -78,8 +78,8 @@ const Header = () => {
     { href: '/', label: 'Home', icon: <span className="material-icons" style={{fontSize: '22px'}}>home</span> },
     { href: '/recommendations#browse', label: 'Recommend', icon: <span className="material-icons" style={{fontSize: '22px'}}>auto_awesome</span> },
     { href: '/catalog', label: 'Catalog', icon: <span className="material-icons" style={{fontSize: '22px'}}>apps</span> },
-    { href: '/manga', label: 'Manga', icon: <span className="material-icons" style={{fontSize: '22px'}}>menu_book</span> },
-    { href: '/news', label: 'More', icon: <span className="material-icons" style={{fontSize: '22px'}}>more_horiz</span> }
+    { href: '/store', label: 'Store', icon: <span className="material-icons" style={{fontSize: '22px'}}>shopping_bag</span> },
+    { href: '/news', label: 'News', icon: <span className="material-icons" style={{fontSize: '22px'}}>article</span> }
   ];
 
   const activeIndex = isMounted && router ? navItems.findIndex(i => {
@@ -90,9 +90,20 @@ const Header = () => {
 
   const segmentsRef = useRef([]);
 
+  // Prefetch navigation pages for faster loading
+  useEffect(() => {
+    if (!isMounted || !router) return;
+    // Prefetch all navigation pages on mount for instant navigation
+    navItems.forEach(item => {
+      const path = item.href.split('#')[0];
+      router.prefetch(path);
+    });
+  }, [isMounted, router]);
+
   const goTo = (href) => {
     if (!isMounted || !router) return;
-    router.push(href);
+    // Use router.push with shallow routing for faster navigation
+    router.push(href, undefined, { shallow: false });
   };
 
   // Keyboard navigation (Arrow keys / Home / End) within segmented nav
@@ -213,7 +224,7 @@ const Header = () => {
       <SmartSearch isOpen={showSearch} onClose={() => setShowSearch(false)} />
 
       <style jsx>{`
-  .site-header { position:sticky; top:0; z-index:120; padding:0.18rem 0 0.30rem; transition: padding .35s ease; }
+  .site-header { position:sticky; top:0; z-index:120; padding:0.18rem 0 0.30rem; transition: padding .2s ease; }
   .site-header.collapsed { padding:0rem 0 0.05rem; }
   .glass-nav { max-width:1400px; margin:0 auto; padding:0.30rem 0.80rem; display:flex; align-items:center; justify-content:space-between; gap:0.85rem; border-radius:24px; position:relative; isolation:isolate; 
           background: var(--color-glass);
@@ -223,7 +234,7 @@ const Header = () => {
           border: 2px solid transparent;
           background-clip: padding-box;
           overflow: visible;
-          transition: padding .5s ease, backdrop-filter .55s ease, background .6s ease, box-shadow .8s ease;
+          transition: padding .25s ease, backdrop-filter .3s ease, background .3s ease, box-shadow .4s ease;
         }
 
   .glass-nav::before { 
@@ -390,8 +401,8 @@ const Header = () => {
   .wordmark:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
   /* Segmented navigation */
   .segmented-nav { position:relative; display:flex; gap:0.38rem; padding:0.32rem; background:var(--color-surface); border:1px solid var(--color-border); border-radius:26px; backdrop-filter: blur(26px) saturate(170%); -webkit-backdrop-filter: blur(26px) saturate(170%); box-shadow:0 5px 20px -10px var(--color-shadow), inset 0 1px 0 var(--color-glass), inset 0 0 0 1px var(--color-glass); overflow:hidden; }
-  .segment { position:relative; flex:1; min-width:110px; display:flex; flex-direction:row; align-items:center; justify-content:center; padding:0.34rem 0.75rem 0.36rem; gap:0.55rem; text-decoration:none !important; color:var(--color-text-dim); font-size:0.62rem; letter-spacing:.55px; font-weight:600; text-transform:capitalize; border-radius:18px; z-index:2; transition:color .3s ease, filter .3s ease, background .3s ease; background:none; border:none; cursor:pointer; font-family:inherit; }
-    .segment .icon { display:flex; align-items:center; justify-content:center; line-height:1; opacity:.9; filter:drop-shadow(0 2px 3px var(--color-shadow)); transition: transform .32s cubic-bezier(.6,.2,.2,1), opacity .28s, filter .28s; }
+  .segment { position:relative; flex:1; min-width:110px; display:flex; flex-direction:row; align-items:center; justify-content:center; padding:0.34rem 0.75rem 0.36rem; gap:0.55rem; text-decoration:none !important; color:var(--color-text-dim); font-size:0.62rem; letter-spacing:.55px; font-weight:600; text-transform:capitalize; border-radius:18px; z-index:2; transition:color .2s ease, filter .2s ease, background .2s ease; background:none; border:none; cursor:pointer; font-family:inherit; }
+    .segment .icon { display:flex; align-items:center; justify-content:center; line-height:1; opacity:.9; filter:drop-shadow(0 2px 3px var(--color-shadow)); transition: transform .2s cubic-bezier(.6,.2,.2,1), opacity .18s, filter .18s; }
     .segment svg { width:17px; height:17px; stroke-width:2; }
     .segment .label { font-size:0.62rem; letter-spacing:.6px; font-weight:600; line-height:1; }
         .segment:hover .icon { transform:translateY(-2px) scale(1.05); opacity:1; filter:drop-shadow(0 4px 9px var(--color-shadow)); }
@@ -403,13 +414,13 @@ const Header = () => {
           box-shadow:0 10px 34px -12px var(--color-accent), 0 0 0 1px var(--color-glass) inset, 0 1px 0 var(--color-glass) inset, 0 0 0 1px var(--color-accent);
           backdrop-filter: blur(42px) saturate(190%);
           -webkit-backdrop-filter: blur(42px) saturate(190%);
-          transition: transform .42s cubic-bezier(.77,.05,.25,1), width .35s ease; z-index:1;
+          transition: transform .25s cubic-bezier(.77,.05,.25,1), width .2s ease; z-index:1;
         }
         .segmented-highlight:after { content:""; position:absolute; inset:0; border-radius:inherit; background:linear-gradient(120deg, var(--color-glass), rgba(255,255,255,0) 45%), linear-gradient(300deg, var(--color-glass), rgba(255,255,255,0) 55%); mix-blend-mode:overlay; opacity:.55; pointer-events:none; }
   .segmented-highlight { transform:translateX(calc(var(--active-index) * (100% + 0.4rem))); }
         .segment:active { transform:translateY(1px); }
   .segment:focus-visible { outline:2px solid #4ecdc4; outline-offset:3px; }
-        .segment:not(.active) { transition:color .35s ease, opacity .35s ease; }
+        .segment:not(.active) { transition:color .2s ease, opacity .2s ease; }
         .segment:not(.active):hover { color:var(--color-text); }
   /* Collapsed animations */
   .site-header.collapsed .segment { min-width:64px; padding:0.18rem 0.5rem 0.2rem; gap:0.4rem; }

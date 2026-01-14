@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useRoadmapAnimation } from '../hooks/useRoadmapAnimation';
 import { gsap } from 'gsap';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
-import RunnerSprite from './RunnerSprite';
 
 /*
   SeasonRoadmap
@@ -11,11 +10,41 @@ import RunnerSprite from './RunnerSprite';
 */
 
 const SEASONS = [
-  { key: 's1', label: 'Season 1', color: '#6bc5ff', months: 'Intro' },
-  { key: 's2', label: 'Season 2', color: '#8fff9f', months: 'Build' },
-  { key: 's3', label: 'Season 3', color: '#ffd36b', months: 'Arc' },
-  { key: 's4', label: 'Season 4', color: '#ff8f6b', months: 'Climax' },
-  { key: 's5', label: 'Season 5', color: '#b28bff', months: 'Finale' },
+  { 
+    key: 's1', 
+    label: 'Season 1', 
+    color: '#6bc5ff', 
+    months: 'Intro',
+    description: 'The journey begins with captivating introductions, world-building, and establishing the foundation of an epic adventure that hooks viewers from the very first episode.'
+  },
+  { 
+    key: 's2', 
+    label: 'Season 2', 
+    color: '#8fff9f', 
+    months: 'Build',
+    description: 'Character development intensifies as relationships deepen, mysteries unfold, and the stakes gradually rise. New alliances form and challenges emerge.'
+  },
+  { 
+    key: 's3', 
+    label: 'Season 3', 
+    color: '#ffd36b', 
+    months: 'Arc',
+    description: 'The main story arc reaches full momentum with intense confrontations, shocking revelations, and pivotal moments that forever change the narrative landscape.'
+  },
+  { 
+    key: 's4', 
+    label: 'Season 4', 
+    color: '#ff8f6b', 
+    months: 'Climax',
+    description: 'The climax brings everything together with breathtaking battles, emotional peaks, and the resolution of long-standing conflicts that keep you on the edge of your seat.'
+  },
+  { 
+    key: 's5', 
+    label: 'Season 5', 
+    color: '#b28bff', 
+    months: 'Finale',
+    description: 'The grand finale delivers an unforgettable conclusion with epic showdowns, satisfying resolutions, and memorable moments that celebrate the entire journey.'
+  },
 ];
 
 export default function SeasonRoadmap({ activeSeason, onSelect, disabled, seasonData, title, relatedMovies = [] }) {
@@ -46,7 +75,7 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
       const r = node.getBoundingClientRect();
       // Position relative to the islands wrapper, not the main container
       const cx = r.left - wrapperRect.left + r.width / 2;
-      const cy = r.top - wrapperRect.top + r.height * 0.35; // Position closer to island center
+      const cy = r.top - wrapperRect.top + r.height * 0.45; // Position in the middle area of the island
       arr.push({ x: cx, y: cy });
     });
     nodeTRef.current = arr;
@@ -54,7 +83,7 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
     movieTRef.current = [];
   }, [seasonData, relatedMovies, DATA.length]);
 
-  // Position character on the active island (only initial positioning, no automatic movement)
+  // Position info box on the active island (only initial positioning, no automatic movement)
   useEffect(() => {
     if (!containerRef.current || !carRef.current) return;
     const idx = DATA.findIndex(s => s.key === activeSeason);
@@ -62,17 +91,16 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
     const target = posArr[idx];
     if (!target) return;
 
-    // Always position character on the active island (for both initial load and season changes)
+    // Position info box directly above the active island
     gsap.set(carRef.current, {
       x: target.x,
-      y: target.y - 50, // Position character floating just above the island
+      y: target.y - 200, // Position directly above the island
+      opacity: 1
     });
-    carRef.current.classList.add('is-idle');
-    carRef.current.classList.remove('is-running');
     lastTRef.current = target;
   }, [DATA, activeSeason]); // Run when DATA or activeSeason changes
 
-  // Enhanced bouncing animation handler for character movement between islands
+  // Fast animation handler for info box movement between islands
   const handleSeasonClick = (seasonKey) => {
     if (onSelect && gsap) {
       const fromNode = document.querySelector('.season-node.island.active');
@@ -80,65 +108,43 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
       
       // Only animate if clicking a different island
       if (fromNode && toNode && fromNode !== toNode) {
-        const runner = carRef.current;
-        if (runner) {
+        const infoBox = carRef.current;
+        if (infoBox) {
           // Get the target position from nodeTRef
           const toIdx = DATA.findIndex(s => s.key === seasonKey);
           const posArr = nodeTRef.current || [];
           const targetPos = posArr[toIdx];
           
           if (targetPos) {
-            // Calculate current and target positions
-            const currentX = gsap.getProperty(runner, "x");
-            const currentY = gsap.getProperty(runner, "y");
-            const deltaX = targetPos.x - currentX;
-            const deltaY = (targetPos.y - 50) - currentY; // Land floating just above island
-            
-            // Create bouncing jump animation
+            // Quick slide animation for info box
             gsap.timeline()
-              .set(runner, { 
-                scale: 1.1, // Slightly bigger during jump
-                zIndex: 1000
+              .to(infoBox, {
+                duration: 0.15,
+                opacity: 0,
+                scale: 0.98,
+                ease: "power2.in"
               })
-              .to(runner, {
-                duration: 0.4,
-                y: currentY - 40, // Jump up first
+              .to(infoBox, {
+                duration: 0.25,
+                x: targetPos.x,
+                y: targetPos.y - 200,
+                ease: "power2.inOut"
+              }, "-=0.05")
+              .to(infoBox, {
+                duration: 0.15,
+                opacity: 1,
+                scale: 1,
                 ease: "power2.out",
                 onStart: () => {
-                  setIsRunning(true);
-                  runner.classList.add('is-running');
-                  runner.classList.remove('is-idle');
-                }
-              })
-              .to(runner, {
-                duration: 0.6,
-                x: targetPos.x, // Move to target X
-                y: targetPos.y - 70, // Arc height during travel
-                ease: "power1.inOut",
-              })
-              .to(runner, {
-                duration: 0.3,
-                y: targetPos.y - 45, // Bounce down
-                ease: "bounce.out"
-              })
-              .to(runner, {
-                duration: 0.2,
-                y: targetPos.y - 50, // Final position floating above island
-                scale: 1, // Return to normal size
-                ease: "power2.out",
-                onComplete: () => {
-                  setIsRunning(false);
-                  runner.classList.remove('is-running');
-                  runner.classList.add('is-idle');
-                  lastTRef.current = targetPos;
-                  // Activate new island after landing
                   onSelect(seasonKey);
+                },
+                onComplete: () => {
+                  lastTRef.current = targetPos;
                 }
-              });
+              }, "-=0.1");
           }
         }
       } else if (!fromNode || fromNode === toNode) {
-        // If no current active island or clicking the same island, just activate
         onSelect(seasonKey);
       }
     } else if (onSelect) {
@@ -398,25 +404,32 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
             </div>
           ))}
         </div>
-        <div className="character is-idle" ref={carRef} aria-hidden>
-          <RunnerSprite size={120} running={isRunning} />
+        <div className="season-info-box" ref={carRef} aria-hidden>
+          <div className="info-content">
+            <h3 className="info-title">{DATA.find(s => s.key === activeSeason)?.label || 'Season Info'}</h3>
+            <p className="info-description">
+              {DATA.find(s => s.key === activeSeason)?.description || 
+               DATA.find(s => s.key === activeSeason)?.subtitle || 
+               'Discover what makes this season special and why it\'s worth watching.'}
+            </p>
+          </div>
         </div>
       </div>
   <style jsx>{`
     .roadmap-title { text-align:center; margin:0 0 1.25rem; font-size:1.35rem; letter-spacing:.5px; opacity:.95; }
-  .season-roadmap.hero-scale { position:relative; padding:3rem 0 2.5rem; }
+  .season-roadmap.hero-scale { position:relative; padding:3rem 0 4rem; }
   .season-roadmap.fullscreen { min-height: 80vh; display:flex; flex-direction:column; justify-content:center; }
-  .islands-wrapper { width:100%; max-width:1400px; margin:0 auto; position:relative; min-height:420px; }
-  .islands { display:flex; gap:2.5rem; justify-content:space-between; align-items:flex-end; padding:3rem 2rem; }
-  .season-node.island { width:220px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:.6rem; filter:grayscale(100%) contrast(.95); transition:all .35s ease; }
-  .season-node.island .island-art { width:180px; height:120px; position:relative; }
+  .islands-wrapper { width:100%; max-width:1600px; margin:0 auto; position:relative; min-height:520px; padding-top: 180px; padding-left: 2rem; padding-right: 2rem; }
+  .islands { display:flex; gap:3.5rem; justify-content:center; align-items:flex-end; padding:3rem 2rem; }
+  .season-node.island { width:280px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:.6rem; filter:brightness(0.7) contrast(.95); transition:all .2s ease; }
+  .season-node.island .island-art { width:240px; height:160px; position:relative; }
   /* old island div styles removed to avoid conflict with inline SVG island */
   .season-node.island .island-meta { width:100%; text-align:center; }
-  .season-node.island .bubble { background:#ddd; color:#0a0f18; font-weight:700; padding:.36rem .6rem; border-radius:999px; font-size:.8rem; display:inline-block; }
+  .season-node.island .bubble { background:#ddd; color:#0a0f18; font-weight:700; padding:.36rem .6rem; border-radius:999px; font-size:.8rem; display:inline-block; transition:all .2s ease; }
   .season-node.island .label { font-weight:700; font-size:1.05rem; margin-top:.25rem; }
   .season-node.island .desc { font-size:.73rem; opacity:.7; margin-top:.25rem; color:var(--color-text-dim); }
-  .season-node.island:hover { transform: translateY(-8px) scale(1.02); filter:grayscale(0%); }
-  .season-node.island.active { filter:grayscale(0%) drop-shadow(0 8px 24px rgba(212,175,55,0.18)); }
+  .season-node.island:hover { transform: translateY(-8px) scale(1.02); filter:brightness(1) contrast(1); }
+  .season-node.island.active { filter:brightness(1) contrast(1) drop-shadow(0 8px 24px rgba(212,175,55,0.18)); }
   /* Diverse Floating Islands SVG styling */
   .island-art svg { display:block; }
   
@@ -525,6 +538,58 @@ export default function SeasonRoadmap({ activeSeason, onSelect, disabled, season
   /* palm sway animation - removed since we now have tree leaves instead */
   /* active SVG island handled via .island-art SVG element styles above */
   .season-node.island.active .bubble { background: #ffd36b; color: #111; }
+  
+  /* Season Info Box - replaces character sprite */
+  .season-info-box { 
+    position: absolute; 
+    left: 0; 
+    top: 0; 
+    transform: translateX(-50%); 
+    pointer-events: none; 
+    z-index: 100; 
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 340px;
+    max-width: calc(100vw - 4rem);
+  }
+  
+  .info-content {
+    background: rgba(10, 15, 24, 0.95);
+    border: 2px solid rgba(255, 215, 0, 0.4);
+    border-radius: 16px;
+    padding: 1.75rem 1.5rem;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9),
+                0 0 30px rgba(255, 215, 0, 0.2);
+    animation: info-box-float 3s ease-in-out infinite;
+    will-change: transform;
+  }
+  
+  .info-title {
+    margin: 0 0 0.85rem 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #ffd700;
+    text-align: center;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+  }
+  
+  .info-description {
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.7;
+    color: #e8e8e8;
+    text-align: center;
+    opacity: 0.95;
+  }
+  
+  @keyframes info-box-float {
+    0% { transform: translateX(-50%) translateY(0px); }
+    50% { transform: translateX(-50%) translateY(-8px); }
+    100% { transform: translateX(-50%) translateY(0px); }
+  }
+  
   .character { 
     position: absolute; 
     left: 0; 

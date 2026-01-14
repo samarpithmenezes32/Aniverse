@@ -31,26 +31,34 @@ export default function AnimeGrid({ onSelectAnime, pageSize = 24, search = '' })
         if (search && search.trim()) {
           // Prefer Jikan search as primary source
           try {
-            const j = await axios.get(`/api/jikan/search?q=${encodeURIComponent(search)}&limit=${pageSize}`);
+            const j = await axios.get(`/api/jikan/search?q=${encodeURIComponent(search)}&limit=${pageSize}`, {
+              timeout: 5000 // 5 second timeout for faster error handling
+            });
             list = Array.isArray(j.data?.anime) ? j.data.anime : [];
           } catch {}
           // Fallback to local /api/anime search if needed
           if (list.length === 0) {
             try {
-              const { data } = await axios.get(`/api/anime?limit=${pageSize}&search=${encodeURIComponent(search)}`);
+              const { data } = await axios.get(`/api/anime?limit=${pageSize}&search=${encodeURIComponent(search)}`, {
+                timeout: 3000
+              });
               list = Array.isArray(data?.animes) ? data.animes : (Array.isArray(data?.anime) ? data.anime : []);
             } catch {}
           }
         } else {
           // Default browse: use Jikan Top list
           try {
-            const top = await axios.get(`/api/jikan/top?limit=${pageSize}`);
+            const top = await axios.get(`/api/jikan/top?limit=${pageSize}`, {
+              timeout: 5000
+            });
             list = Array.isArray(top.data?.anime) ? top.data.anime : [];
           } catch {}
           // Fallback to local curated list
           if (list.length === 0) {
             try {
-              const { data } = await axios.get(`/api/anime?limit=${pageSize}`);
+              const { data } = await axios.get(`/api/anime?limit=${pageSize}`, {
+                timeout: 3000
+              });
               list = Array.isArray(data?.animes) ? data.animes : (Array.isArray(data?.anime) ? data.anime : []);
             } catch {}
           }

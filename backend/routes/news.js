@@ -31,15 +31,23 @@ async function fetchANNNews() {
     const annUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent('https://www.animenewsnetwork.com/all/rss.xml');
     const response = await axios.get(annUrl, { timeout: 12000 });
     if (response.data && response.data.items) {
-      return response.data.items.slice(0, 20).map((it, idx) => ({
-        mal_id: 'ann-' + idx + '-' + Date.now(),
-        title: it.title,
-        link: it.link,
-        pubDate: it.pubDate,
-        thumbnail: it.thumbnail || (it.enclosure ? it.enclosure.link : ''),
-        description: it.description || it.content || '',
-        source: 'Anime News Network',
-      }));
+      return response.data.items.slice(0, 20).map((it, idx) => {
+        // Extract image from description/content if thumbnail is missing
+        let thumbnail = it.thumbnail || (it.enclosure ? it.enclosure.link : '');
+        if (!thumbnail && it.description) {
+          const imgMatch = it.description.match(/<img[^>]+src="([^">]+)"/i);
+          if (imgMatch) thumbnail = imgMatch[1];
+        }
+        return {
+          mal_id: 'ann-' + idx + '-' + Date.now(),
+          title: it.title,
+          link: it.link,
+          pubDate: it.pubDate,
+          thumbnail: thumbnail,
+          description: it.description || it.content || '',
+          source: 'Anime News Network',
+        };
+      });
     }
   } catch (error) {
     console.error('Failed to fetch ANN news:', error.message);
@@ -52,15 +60,23 @@ async function fetchCrunchyrollNews() {
     const crUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent('https://www.crunchyroll.com/affiliate-rss');
     const response = await axios.get(crUrl, { timeout: 12000 });
     if (response.data && response.data.items) {
-      return response.data.items.slice(0, 15).map((it, idx) => ({
-        mal_id: 'cr-' + idx + '-' + Date.now(),
-        title: it.title,
-        link: it.link,
-        pubDate: it.pubDate,
-        thumbnail: it.thumbnail || (it.enclosure ? it.enclosure.link : ''),
-        description: it.description || '',
-        source: 'Crunchyroll',
-      }));
+      return response.data.items.slice(0, 15).map((it, idx) => {
+        // Extract image from description/content if thumbnail is missing
+        let thumbnail = it.thumbnail || (it.enclosure ? it.enclosure.link : '');
+        if (!thumbnail && it.description) {
+          const imgMatch = it.description.match(/<img[^>]+src="([^">]+)"/i);
+          if (imgMatch) thumbnail = imgMatch[1];
+        }
+        return {
+          mal_id: 'cr-' + idx + '-' + Date.now(),
+          title: it.title,
+          link: it.link,
+          pubDate: it.pubDate,
+          thumbnail: thumbnail,
+          description: it.description || '',
+          source: 'Crunchyroll',
+        };
+      });
     }
   } catch (error) {
     console.error('Failed to fetch Crunchyroll news:', error.message);
