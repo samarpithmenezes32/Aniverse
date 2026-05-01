@@ -6,7 +6,8 @@ import AnimeDetailsModal from './AnimeDetailsModal';
 
 // Simple grid to list some anime from /api/anime
 export default function AnimeGrid({ onSelectAnime, pageSize = 24, search = '' }) {
-  const router = useRouter();
+  // Conditional router - only use on client-side
+  const router = typeof window !== 'undefined' ? useRouter() : null;
   const [animes, setAnimes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,26 +31,34 @@ export default function AnimeGrid({ onSelectAnime, pageSize = 24, search = '' })
         if (search && search.trim()) {
           // Prefer Jikan search as primary source
           try {
-            const j = await axios.get(`/api/jikan/search?q=${encodeURIComponent(search)}&limit=${pageSize}`);
+            const j = await axios.get(`/api/jikan/search?q=${encodeURIComponent(search)}&limit=${pageSize}`, {
+              timeout: 5000 // 5 second timeout for faster error handling
+            });
             list = Array.isArray(j.data?.anime) ? j.data.anime : [];
           } catch {}
           // Fallback to local /api/anime search if needed
           if (list.length === 0) {
             try {
-              const { data } = await axios.get(`/api/anime?limit=${pageSize}&search=${encodeURIComponent(search)}`);
+              const { data } = await axios.get(`/api/anime?limit=${pageSize}&search=${encodeURIComponent(search)}`, {
+                timeout: 3000
+              });
               list = Array.isArray(data?.animes) ? data.animes : (Array.isArray(data?.anime) ? data.anime : []);
             } catch {}
           }
         } else {
           // Default browse: use Jikan Top list
           try {
-            const top = await axios.get(`/api/jikan/top?limit=${pageSize}`);
+            const top = await axios.get(`/api/jikan/top?limit=${pageSize}`, {
+              timeout: 5000
+            });
             list = Array.isArray(top.data?.anime) ? top.data.anime : [];
           } catch {}
           // Fallback to local curated list
           if (list.length === 0) {
             try {
-              const { data } = await axios.get(`/api/anime?limit=${pageSize}`);
+              const { data } = await axios.get(`/api/anime?limit=${pageSize}`, {
+                timeout: 3000
+              });
               list = Array.isArray(data?.animes) ? data.animes : (Array.isArray(data?.anime) ? data.anime : []);
             } catch {}
           }
@@ -142,22 +151,22 @@ export default function AnimeGrid({ onSelectAnime, pageSize = 24, search = '' })
       <style jsx>{`
         .anime-grid-wrap { max-width:1300px; margin:0 auto; padding:2rem 1.5rem 3rem; }
         .top { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
-        h2 { margin:0; font-size:1.6rem; }
-        .hint { margin:0; opacity:.75; }
-        .banner { background:#2b2130; border:1px solid #5a3a48; color:#eed; padding:.6rem .8rem; border-radius:10px; margin:.6rem 0 1rem; }
-        .loading { opacity:.8; padding:.5rem 0; }
+        h2 { margin:0; font-size:1.6rem; color:var(--color-text); background:linear-gradient(45deg, var(--color-accent), var(--color-accent-glow));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
+        .hint { margin:0; opacity:.75; color:var(--color-text-dim); }
+        .banner { background:var(--color-surface); border:1px solid var(--color-border); color:var(--color-text); padding:.6rem .8rem; border-radius:10px; margin:.6rem 0 1rem; }
+        .loading { opacity:.8; padding:.5rem 0; color:var(--color-text-dim); }
         .grid { display:grid; gap:1.25rem; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); }
-        .card { background:#1b2436; border:1px solid #28344d; border-radius:14px; overflow:hidden; display:flex; flex-direction:column; cursor:pointer; transition: transform .2s ease, box-shadow .2s ease; }
-        .card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(0,0,0,.35); }
-        .poster { position:relative; aspect-ratio:3/4; background:#0e141f; }
-  .overlay-gradient { position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(18,24,38,0.85) 100%); opacity:0; transition:opacity .2s ease; will-change: opacity; }
+        .card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; cursor:pointer; transition: transform .2s ease, box-shadow .2s ease; }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px var(--color-shadow); border-color:var(--color-accent-glow); }
+        .poster { position:relative; aspect-ratio:3/4; background:var(--color-bg-alt); }
+  .overlay-gradient { position:absolute; inset:0; background:linear-gradient(180deg, transparent 60%, var(--color-shadow) 100%); opacity:0; transition:opacity .2s ease; will-change: opacity; }
         .card:hover .overlay-gradient { opacity:1; }
         .info { padding:.75rem .8rem 1rem; display:flex; flex-direction:column; gap:.5rem; }
-        .title { margin:0; font-size:0.98rem; line-height:1.3; }
-        .genres { font-size:.7rem; opacity:.65; }
+        .title { margin:0; font-size:0.98rem; line-height:1.3; color:var(--color-text); }
+        .genres { font-size:.7rem; opacity:.65; color:var(--color-text-dim); }
   .actions { display:flex; gap:.5rem; }
-  .details { align-self:flex-start; background:#243249; border:1px solid #2e3d55; color:#fff; font-size:.75rem; padding:.45rem .7rem; border-radius:8px; cursor:pointer; }
-  .details:hover { background:#2e3d55; }
+  .details { align-self:flex-start; background:var(--color-glass); border:1px solid var(--color-border); color:var(--color-text); font-size:.75rem; padding:.45rem .7rem; border-radius:8px; cursor:pointer; transition:all .2s; }
+  .details:hover { background:var(--color-accent-glow); border-color:var(--color-accent); }
       `}</style>
     </section>
   );

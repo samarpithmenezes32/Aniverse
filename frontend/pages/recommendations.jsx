@@ -6,8 +6,9 @@ import PosterImage from '../src/components/PosterImage';
 import RecommendationHero from '../src/components/RecommendationHero';
 import ThreeBackground from '../src/components/ThreeBackground';
 import AnimeGrid from '../src/components/AnimeGrid';
-import TopPopular from '../src/components/TopPopular';
+import ReviewSystem from '../src/components/ReviewSystem';
 import SeasonRoadmap, { SEASONS } from '../src/components/SeasonRoadmap';
+import RecommendationModes from '../src/components/RecommendationModes';
 const DynamicTimeline = dynamic(() => import('../src/components/RecommendationTimeline'), { ssr:false, loading: () => <div style={{padding:'4rem', textAlign:'center'}}>Preparing timeline...</div> });
 import axios from 'axios';
 import { useToast } from '../src/components/ToastProvider';
@@ -25,7 +26,8 @@ const algorithms = [
 ];
 
 const RecommendationsPage = () => {
-  const router = useRouter();
+  // Conditional router - only use on client-side
+  const router = typeof window !== 'undefined' ? useRouter() : null;
   const toast = useToast();
   const [user, setUser] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
@@ -66,6 +68,56 @@ const RecommendationsPage = () => {
     if (router && router.query && typeof router.query.search === 'string') {
       setSearchQuery(router.query.search);
     }
+    // Check if anime parameter exists for roadmap view
+    if (router && router.query && router.query.anime) {
+      const animeId = router.query.anime;
+      // Check if we have data parameter for immediate display
+      if (router.query.data) {
+        try {
+          const animeData = JSON.parse(decodeURIComponent(router.query.data));
+          handleSelectAnime(animeData);
+        } catch (error) {
+          console.error('Error parsing anime data:', error);
+          // Fallback to fetching from API
+          (async () => {
+            try {
+              // Try local API first
+              let response;
+              try {
+                response = await axios.get(`/api/anime/${animeId}`);
+              } catch {
+                // Fallback to Jikan API
+                response = await axios.get(`/api/jikan/anime/${animeId}`);
+              }
+              if (response.data) {
+                handleSelectAnime(response.data);
+              }
+            } catch (error) {
+              console.error('Error fetching anime for roadmap:', error);
+            }
+          })();
+        }
+      } else {
+        // Fetch anime details and show roadmap
+        (async () => {
+          try {
+            // Try local API first
+            let response;
+            try {
+              response = await axios.get(`/api/anime/${animeId}`);
+            } catch {
+              // Fallback to Jikan API
+              response = await axios.get(`/api/jikan/anime/${animeId}`);
+            }
+            if (response.data) {
+              handleSelectAnime(response.data);
+            }
+          } catch (error) {
+            console.error('Error fetching anime for roadmap:', error);
+          }
+        })();
+      }
+    }
     // Check if user is logged in
     const token = localStorage.getItem('token');
     if (token) {
@@ -82,6 +134,22 @@ const RecommendationsPage = () => {
         }
       } catch { /* ignore */ }
     })();
+
+    // Listen for custom roadmap event from RecommendationModes
+    const handleShowRoadmap = (event) => {
+      const animeData = event.detail;
+      handleSelectAnime(animeData);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('showRoadmap', handleShowRoadmap);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('showRoadmap', handleShowRoadmap);
+      }
+    };
   }, []);
 
   const fetchUserData = async (token) => {
@@ -199,7 +267,7 @@ const RecommendationsPage = () => {
               .filter(e => (e.type || '').toLowerCase() === 'anime' && /movie/i.test(e.name || e.title || ''));
             setRelatedMovies(relMovies);
           } catch {}
-          // Fetch all episodes for this anime (paginate)
+            // Fetch all episodes for this anime (paginate)
           try {
             let all = [];
             let page = 1;
@@ -214,6 +282,83 @@ const RecommendationsPage = () => {
             }
             setSelectedAnimeEpisodes(all);
             if (!totalEpisodes && all.length) totalEpisodes = all.length;
+
+            // --- New: attempt to group episodes into production seasons by air-date gaps ---
+            const parseAirDate = (ep) => {
+              // Try multiple known date fields that may be present in different API versions
+              const cand = ep.aired || ep.aired_at || ep.aired_on || ep.aired_date || (ep.aired && (ep.aired.from || ep.aired.date));
+              if (!cand) return null;
+              const d = Date.parse(cand);
+              if (!isNaN(d)) return new Date(d);
+              // try other nested formats
+              if (ep.aired && typeof ep.aired === 'object') {
+                const from = ep.aired.from || ep.aired_from || ep.airedDate;
+                const dd = Date.parse(from);
+                if (!isNaN(dd)) return new Date(dd);
+              }
+              return null;
+            };
+
+            // Normalize episodes with number + parsed date
+            const normalized = all.map((ep, idx) => {
+              const num = ep.episode || ep.number || ep.mal_id || (idx + 1);
+              const date = parseAirDate(ep);
+              return { ...ep, __num: Number(num) || (idx + 1), __date: date };
+            }).sort((a, b) => (a.__num - b.__num));
+
+            // If we have at least some valid dates, split into seasons where there's a large gap
+            const gapDays = 60; // gap threshold in days to mark a new production season
+            let seasons = [];
+            if (normalized.some(e => e.__date)) {
+              let current = [];
+              for (let i = 0; i < normalized.length; i++) {
+                const ep = normalized[i];
+                if (current.length === 0) {
+                  current.push(ep);
+                } else {
+                  const prev = current[current.length - 1];
+                  if (prev.__date && ep.__date) {
+                    const diff = (ep.__date - prev.__date) / (1000 * 60 * 60 * 24);
+                    if (diff > gapDays) {
+                      seasons.push(current);
+                      current = [ep];
+                    } else {
+                      current.push(ep);
+                    }
+                  } else {
+                    // missing date on one side -> just append
+                    current.push(ep);
+                  }
+                }
+              }
+              if (current.length) seasons.push(current);
+            }
+
+            // Fallback: if no date-based grouping produced more than one season, but total ep count suggests multiple
+            if ((!seasons || seasons.length <= 1) && normalized.length > 12) {
+              const estCount = Math.max(1, Math.min(5, Math.ceil(normalized.length / 12)));
+              const per = Math.ceil(normalized.length / estCount);
+              seasons = Array.from({ length: estCount }).map((_, i) => normalized.slice(i * per, (i + 1) * per)).filter(g => g.length);
+            }
+
+            // If still empty, create a single season group
+            if (!seasons || seasons.length === 0) seasons = [normalized];
+
+            // Build seasonData entries with episodes arrays and descriptive subtitle
+            const seasonGroups = seasons.map((group, i) => {
+              const start = group[0]?.__num || 1;
+              const end = group[group.length - 1]?.__num || group.length;
+              const startDate = group[0]?.__date ? group[0].__date.toLocaleDateString() : null;
+              const endDate = group[group.length - 1]?.__date ? group[group.length - 1].__date.toLocaleDateString() : null;
+              const subtitle = `${group.length} ep${group.length>1?'s':''}${startDate && endDate ? ` · ${startDate} — ${endDate}` : ''}`;
+              return { key:`s${i+1}`, label:`Season ${i+1}`, color: palette[i % palette.length], subtitle, episodes: group };
+            });
+
+            // Use the season groups if they look reasonable
+            if (seasonGroups && seasonGroups.length > 0) {
+              seasonData = seasonGroups;
+            }
+
           } catch {}
         } else {
           // Fallback to local database details if MAL id is missing
@@ -347,6 +492,23 @@ const RecommendationsPage = () => {
     return [start, end];
   };
   const episodesForSeason = () => {
+    // If seasonData contains grouped episodes (from date-gap grouping), prefer that
+    try {
+      const sd = selectedAnimeInfo?.seasonData;
+      if (Array.isArray(sd) && sd.length > 0 && sd[0].episodes) {
+        const idx = Math.max(0, (season && season.startsWith('s') ? (parseInt(season.slice(1)) - 1) : 0));
+        const group = sd[idx] || [];
+        const arr = Array.isArray(group) ? group : (group.episodes || []);
+        if (!arr || arr.length === 0) return [];
+        return arr.filter(ep => {
+          if (episodeFilter === 'canon') return !ep.filler;
+          return true;
+        });
+      }
+    } catch (e) {
+      // ignore and fallback
+    }
+
     if (!selectedAnimeEpisodes || selectedAnimeEpisodes.length === 0) return [];
     const [start, end] = seasonSliceRange(selectedAnimeInfo?.totalEpisodes || selectedAnimeEpisodes.length);
     return selectedAnimeEpisodes.filter(ep => {
@@ -379,10 +541,15 @@ const RecommendationsPage = () => {
     try {
       const justAuthed = localStorage.getItem('aniverse.justAuthed');
       const hash = window.location.hash;
-      if (justAuthed === '1' || hash === '#browse') {
+      if (justAuthed === '1' || hash === '#browse' || hash === '#choose-style') {
         localStorage.removeItem('aniverse.justAuthed');
-        const el = document.getElementById('browse');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Use a timeout to ensure the element is rendered
+        setTimeout(() => {
+          const el = document.getElementById('browse');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
       }
     } catch {}
   }, []);
@@ -407,6 +574,11 @@ const RecommendationsPage = () => {
 
   return (
   <div className="recommendations-page">
+      {/* Background always visible for consistent premium experience */}
+      <div className="hero-wrap">
+        <ThreeBackground className="hero-bg" />
+      </div>
+
       {showSkeletons && !showTimeline && (
         <div className="skeleton-grid" role="status" aria-label="Loading recommendations">
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
@@ -415,165 +587,17 @@ const RecommendationsPage = () => {
 
       {!showTimeline ? (
         <>
-          <div className="hero-wrap">
-            <ThreeBackground className="hero-bg" />
-            <div className="hero-inner">
-              <RecommendationHero 
-                user={user} 
-                onStartRecommendations={handleStartRecommendations}
-                showStartCta={false}
-              />
-            </div>
+          <div className="hero-inner">
+            <RecommendationHero 
+              user={user} 
+              onStartRecommendations={handleStartRecommendations}
+              showStartCta={false}
+            />
           </div>
-          {/* New: show a browse grid first to let users pick an anime, then reveal roadmap on Details */}
-          <div id="browse">
-            <AnimeGrid onSelectAnime={handleSelectAnime} pageSize={24} search={searchQuery} />
-          </div>
-          {/* Top 500 Popular (Japan) */}
-          <section className="top-popular">
-            <h2>Top 500 Popular Anime (JP)</h2>
-            <TopPopular />
+          {/* New: Advanced Recommendation Modes */}
+          <section className="recommendation-modes-section" id="browse-section">
+            <RecommendationModes />
           </section>
-          <div className="algorithm-selector" role="tablist" aria-label="Recommendation algorithm selection">
-            <h3>Choose Your Recommendation Style</h3>
-            <div className="algorithm-options">
-              <button 
-                role="tab"
-                aria-selected={selectedAlgorithm === 'hybrid'}
-                tabIndex={selectedAlgorithm === 'hybrid' ? 0 : -1}
-                onClick={() => handleAlgorithmChange('hybrid')}
-                onKeyDown={(e) => {
-                  if (['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) {
-                    e.preventDefault();
-                    const idx = algorithms.findIndex(a => a.key === selectedAlgorithm);
-                    if (e.key === 'ArrowRight') {
-                      handleAlgorithmChange(algorithms[(idx + 1) % algorithms.length].key);
-                    } else if (e.key === 'ArrowLeft') {
-                      handleAlgorithmChange(algorithms[(idx - 1 + algorithms.length) % algorithms.length].key);
-                    } else if (e.key === 'Home') {
-                      handleAlgorithmChange(algorithms[0].key);
-                    } else if (e.key === 'End') {
-                      handleAlgorithmChange(algorithms[algorithms.length - 1].key);
-                    }
-                  }
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleAlgorithmChange('hybrid');
-                  }
-                }}
-                className={selectedAlgorithm === 'hybrid' ? 'active' : ''}
-                disabled={loading}
-              >
-                <div className="option-icon">🎯</div>
-                <div className="option-text">
-                  <strong>Smart Mix</strong>
-                  <span>Best of all worlds</span>
-                </div>
-              </button>
-              
-              <button 
-                role="tab"
-                aria-selected={selectedAlgorithm === 'content'}
-                tabIndex={selectedAlgorithm === 'content' ? 0 : -1}
-                onClick={() => handleAlgorithmChange('content')}
-                onKeyDown={(e) => {
-                  if (['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) {
-                    e.preventDefault();
-                    const idx = algorithms.findIndex(a => a.key === selectedAlgorithm);
-                    if (e.key === 'ArrowRight') {
-                      handleAlgorithmChange(algorithms[(idx + 1) % algorithms.length].key);
-                    } else if (e.key === 'ArrowLeft') {
-                      handleAlgorithmChange(algorithms[(idx - 1 + algorithms.length) % algorithms.length].key);
-                    } else if (e.key === 'Home') {
-                      handleAlgorithmChange(algorithms[0].key);
-                    } else if (e.key === 'End') {
-                      handleAlgorithmChange(algorithms[algorithms.length - 1].key);
-                    }
-                  }
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleAlgorithmChange('content');
-                  }
-                }}
-                className={selectedAlgorithm === 'content' ? 'active' : ''}
-                disabled={loading}
-              >
-                <div className="option-icon">🔍</div>
-                <div className="option-text">
-                  <strong>Content Based</strong>
-                  <span>Similar to what you like</span>
-                </div>
-              </button>
-              
-              <button 
-                role="tab"
-                aria-selected={selectedAlgorithm === 'collaborative'}
-                tabIndex={selectedAlgorithm === 'collaborative' ? 0 : -1}
-                onClick={() => handleAlgorithmChange('collaborative')}
-                onKeyDown={(e) => {
-                  if (['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) {
-                    e.preventDefault();
-                    const idx = algorithms.findIndex(a => a.key === selectedAlgorithm);
-                    if (e.key === 'ArrowRight') {
-                      handleAlgorithmChange(algorithms[(idx + 1) % algorithms.length].key);
-                    } else if (e.key === 'ArrowLeft') {
-                      handleAlgorithmChange(algorithms[(idx - 1 + algorithms.length) % algorithms.length].key);
-                    } else if (e.key === 'Home') {
-                      handleAlgorithmChange(algorithms[0].key);
-                    } else if (e.key === 'End') {
-                      handleAlgorithmChange(algorithms[algorithms.length - 1].key);
-                    }
-                  }
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleAlgorithmChange('collaborative');
-                  }
-                }}
-                className={selectedAlgorithm === 'collaborative' ? 'active' : ''}
-                disabled={loading}
-              >
-                <div className="option-icon">👥</div>
-                <div className="option-text">
-                  <strong>Community</strong>
-                  <span>What similar users enjoy</span>
-                </div>
-              </button>
-              
-              <button 
-                role="tab"
-                aria-selected={selectedAlgorithm === 'popular'}
-                tabIndex={selectedAlgorithm === 'popular' ? 0 : -1}
-                onClick={() => handleAlgorithmChange('popular')}
-                onKeyDown={(e) => {
-                  if (['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) {
-                    e.preventDefault();
-                    const idx = algorithms.findIndex(a => a.key === selectedAlgorithm);
-                    if (e.key === 'ArrowRight') {
-                      handleAlgorithmChange(algorithms[(idx + 1) % algorithms.length].key);
-                    } else if (e.key === 'ArrowLeft') {
-                      handleAlgorithmChange(algorithms[(idx - 1 + algorithms.length) % algorithms.length].key);
-                    } else if (e.key === 'Home') {
-                      handleAlgorithmChange(algorithms[0].key);
-                    } else if (e.key === 'End') {
-                      handleAlgorithmChange(algorithms[algorithms.length - 1].key);
-                    }
-                  }
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleAlgorithmChange('popular');
-                  }
-                }}
-                className={selectedAlgorithm === 'popular' ? 'active' : ''}
-                disabled={loading}
-              >
-                <div className="option-icon">🔥</div>
-                <div className="option-text">
-                  <strong>Trending</strong>
-                  <span>What's hot right now</span>
-                </div>
-              </button>
-            </div>
-          </div>
         </>
       ) : (
         <div className={`post-start-wrapper ${showTimeline ? 'reveal' : ''}`}>
@@ -589,25 +613,27 @@ const RecommendationsPage = () => {
           )}
           {selectedAnimeInfo.title && (
             <div className="selected-anime-summary">
-              <h3>{selectedAnimeInfo.title}</h3>
-              {selectedAnimeInfo.seasonData?.length > 0 && (
-                <p>{selectedAnimeInfo.seasonData.length} season(s) detected</p>
-              )}
+              <h3 className="anime-title">{selectedAnimeInfo.title}</h3>
             </div>
           )}
+          
+          {/* Main roadmap heading */}
+          <div className="roadmap-main-heading">
+            <h2>Roadmap to Anime</h2>
+          </div>
+          
           <SeasonRoadmap
             activeSeason={season}
             onSelect={handleSeasonChange}
             disabled={loading}
             seasonData={selectedAnimeInfo.seasonData}
-            title={selectedAnimeInfo.title ? `${selectedAnimeInfo.title} — Seasons` : undefined}
             relatedMovies={relatedMovies}
           />
           {/* Episodes for the selected anime and season */}
           {episodesForSeason().length > 0 && (
             <div className="episodes-section">
               <div className="ep-header">
-                <h2 className="section-title">{(SEASONS.find(s => s.key === season)?.label || 'Season')} Episodes</h2>
+                <h2 className="section-title">{(selectedAnimeInfo?.seasonData && selectedAnimeInfo.seasonData[Math.max(0, (season && season.startsWith('s') ? (parseInt(season.slice(1)) - 1) : 0))]?.label) || (SEASONS.find(s => s.key === season)?.label || 'Season')} Episodes</h2>
                 {/* Start button: opens first available platform for the anime */}
                 {Array.isArray(selectedAnimeInfo.streaming) && selectedAnimeInfo.streaming.length > 0 && (
                   <a
@@ -666,29 +692,6 @@ const RecommendationsPage = () => {
               </div>
             </div>
           )}
-          <div className="recommendation-section">
-            <h2 className="section-title">{(SEASONS.find(s => s.key === season)?.label || 'Season')} Picks</h2>
-            {loading && <div className="loading-small" role="status">Loading...</div>}
-            {!loading && recommendations.length === 0 && (
-              <div className="empty" role="status">No recommendations yet.</div>
-            )}
-            <div className="rec-grid">
-              {recommendations.map(anime => (
-                <div key={anime._id || anime.id} className="rec-card" aria-label={anime.title}>
-                  <div className="poster" onClick={() => handleAnimeClick(anime)} role="button" tabIndex={0} onKeyDown={(e)=>{ if(e.key==='Enter') handleAnimeClick(anime); }}>
-                    <PosterImage title={anime.title} src={anime.image || anime.poster} alt={anime.title} />
-                  </div>
-                  <div className="info">
-                    <h3 className="title">{anime.title}</h3>
-                    {anime.genres && <div className="genres">{anime.genres.slice(0,3).join(', ')}</div>}
-                    <div className="actions">
-                      <button onClick={() => handleSelectAnime(anime)} className="details-btn">Details</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
           {/* Special category: Top Movies */}
           {topMovies.length > 0 && (
             <div className="recommendation-section">
@@ -727,6 +730,16 @@ const RecommendationsPage = () => {
               </div>
             </div>
           )}
+          
+          {/* Review System */}
+          {selectedAnimeInfo.title && selectedAnimeInfo.malId && (
+            <div className="recommendation-section">
+              <ReviewSystem 
+                animeId={selectedAnimeInfo.malId} 
+                animeTitle={selectedAnimeInfo.title}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -741,8 +754,8 @@ const RecommendationsPage = () => {
       )}
 
       <style jsx>{`
-  .recommendations-page { min-height:100vh; background:${colors.bgDark}; display:flex; flex-direction:column; }
-  .hero-wrap { position:relative; isolation:isolate; z-index:0; contain:content; }
+  .recommendations-page { min-height:100vh; background:var(--color-bg); color:var(--color-text); display:flex; flex-direction:column; position:relative; }
+  .hero-wrap { position:relative; isolation:isolate; z-index:1; contain:content; }
   /* Ensure hero video/background sits above subsequent content during initial load */
   .hero-wrap :global(.video-bg) { z-index: 2; }
   .hero-wrap :global(.hero-content),
@@ -750,154 +763,137 @@ const RecommendationsPage = () => {
   .hero-wrap :global(.hero-bottom-fade) { z-index: 4; }
   .hero-bg { pointer-events:none; filter: saturate(1.1) brightness(1); opacity:0.7; }
   .hero-inner { position:relative; z-index:1; }
-  .post-start-wrapper { padding:2rem 0 6rem; background:${colors.bgDark}; opacity:0; transform: translateY(24px); filter: blur(2px); transition: opacity .5s ease, transform .5s ease, filter .5s ease; }
+  .post-start-wrapper { padding:2rem 0 6rem; background:var(--color-bg); opacity:0; transform: translateY(24px); filter: blur(2px); transition: opacity .5s ease, transform .5s ease, filter .5s ease; }
   .post-start-wrapper.reveal { opacity:1; transform:none; filter:none; }
   .recommendation-section { max-width:1300px; margin:0 auto; padding:2rem 2rem 4rem; }
-  .section-title { font-size:2rem; margin:0 0 1.5rem; background:${gradients.accent}; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .section-title { font-size:2rem; margin:0 0 1.5rem; background:linear-gradient(45deg, var(--color-accent), var(--color-accent-glow)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
   .rec-grid { display:grid; gap:1.75rem; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); }
-  .rec-card { background:${colors.panel}; border:1px solid ${colors.panelBorder}; border-radius:16px; overflow:hidden; display:flex; flex-direction:column; position:relative; box-shadow:${shadows.card}; transition:.35s; }
-  .rec-card:hover { transform:translateY(-6px); box-shadow:${shadows.cardHover}; }
-  .poster { position:relative; aspect-ratio:3/4; background:#0e141f; cursor:pointer; }
+  .rec-card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; position:relative; box-shadow:0 6px 20px -6px var(--color-shadow); transition:.35s; }
+  .rec-card:hover { transform:translateY(-6px); box-shadow:0 12px 30px -6px var(--color-shadow); }
+  .poster { position:relative; aspect-ratio:3/4; background:var(--color-bg-alt); cursor:pointer; }
   .poster img { width:100%; height:100%; object-fit:cover; display:block; }
-  .no-img { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:.8rem; opacity:.6; }
+  .no-img { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:.8rem; color:var(--color-text-dim); }
   .info { padding:.9rem .95rem 1.2rem; display:flex; flex-direction:column; gap:.55rem; }
-  .title { font-size:1rem; margin:0; line-height:1.3; }
-  .genres { font-size:.65rem; letter-spacing:.5px; opacity:.65; text-transform:uppercase; }
+  .title { font-size:1rem; margin:0; line-height:1.3; color:var(--color-text); }
+  .genres { font-size:.65rem; letter-spacing:.5px; color:var(--color-text-dim); text-transform:uppercase; }
   .actions { display:flex; gap:.5rem; margin-top:.25rem; }
-  .details-btn { flex:1; background:#243249; border:1px solid #2e3d55; color:#fff; font-size:.7rem; letter-spacing:.5px; padding:.5rem .7rem; border-radius:8px; cursor:pointer; transition:.25s; }
-  .details-btn:hover { background:#2e3d55; }
-  .loading-small { padding:1rem; font-size:.9rem; opacity:.8; }
-  .empty { padding:2rem 0; text-align:center; font-size:.9rem; opacity:.7; }
+  .details-btn { flex:1; background:var(--color-surface); border:1px solid var(--color-border); color:var(--color-text); font-size:.7rem; letter-spacing:.5px; padding:.5rem .7rem; border-radius:8px; cursor:pointer; transition:.25s; }
+  .details-btn:hover { background:var(--color-accent-alt); }
+  .loading-small { padding:1rem; font-size:.9rem; color:var(--color-text-dim); }
+  .empty { padding:2rem 0; text-align:center; font-size:.9rem; color:var(--color-text-dim); }
 
-        .algorithm-selector {
-          padding: 4rem 2rem;
-          background: ${gradients.panel};
-          text-align: center;
-          color: white;
-        }
-
-        .algorithm-selector h3 {
-          font-size: 2rem;
-          margin-bottom: 3rem;
-          background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .algorithm-options {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 2rem;
-          max-width: 1000px;
-          margin: 0 auto;
-        }
-
-        .algorithm-options button {
-          background: rgba(255, 255, 255, 0.1);
-          border: 2px solid transparent;
-          border-radius: 15px;
-          padding: 2rem;
-          color: white;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          text-align: left;
-        }
-
-        .algorithm-options button:hover {
-          background: rgba(255, 255, 255, 0.15);
-          transform: translateY(-5px);
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .algorithm-options button.active {
-          border-color: ${colors.accentB};
-          background: rgba(78, 205, 196, 0.2);
-        }
-  .transition-indicator { font-size:.7rem; letter-spacing:.5px; opacity:.6; margin-left:.75rem; }
-
-        .algorithm-options button[disabled] { 
-          opacity:0.5; 
-          cursor:not-allowed; 
-          filter:grayscale(0.3); 
-        }
-
-        .option-icon {
-          font-size: 2rem;
-          flex-shrink: 0;
-        }
-
-        .option-text {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .option-text strong {
-          font-size: 1.1rem;
-          font-weight: 600;
-        }
-
-        .option-text span {
-          font-size: 0.9rem;
-          opacity: 0.7;
-        }
+  .recommendation-modes-section {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+    background: var(--color-bg);
+    position: relative;
+    z-index: 10;
+  }
 
         .status-banner { text-align:center; padding:0.75rem 1rem; font-size:0.85rem; letter-spacing:.5px; }
-  .status-banner.warning { background:linear-gradient(90deg,#ffa94d22,#ff6b6b33); border-top:1px solid #ffa94d55; border-bottom:1px solid #ff6b6b55; }
-  .status-banner.degraded { background:linear-gradient(90deg,#ff6b6b33,#4ecdc422); border-top:1px solid #ff6b6b66; border-bottom:1px solid #4ecdc466; }
-        .status-banner.guest { background:linear-gradient(90deg,#4ecdc422,#ffffff11); border-top:1px solid #4ecdc455; border-bottom:1px solid #4ecdc455; }
+  .status-banner.warning { background:linear-gradient(90deg,var(--color-accent-alt),var(--color-accent)); border-top:1px solid var(--color-accent); border-bottom:1px solid var(--color-accent); }
+  .status-banner.degraded { background:linear-gradient(90deg,var(--color-accent),var(--color-accent-glow)); border-top:1px solid var(--color-accent); border-bottom:1px solid var(--color-accent-glow); }
+        .status-banner.guest { background:linear-gradient(90deg,var(--color-accent-glow),var(--color-surface)); border-top:1px solid var(--color-accent-glow); border-bottom:1px solid var(--color-accent-glow); }
 
         .skeleton-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1.5rem; padding:2rem; max-width:1200px; margin:0 auto; }
 
-  .profile-pill { max-width:1300px; margin:0 auto; padding:0 2rem 0.5rem; display:flex; align-items:center; gap:.5rem; opacity:.9; }
-  .profile-pill .avatar { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#28364f; border:1px solid #2e3d55; }
+  .profile-pill { max-width:1300px; margin:0 auto; padding:0 2rem 0.5rem; display:flex; align-items:center; gap:.5rem; color:var(--color-text-dim); }
+  .profile-pill .avatar { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:var(--color-surface); border:1px solid var(--color-border); }
   .profile-pill .name { font-size:.9rem; letter-spacing:.4px; margin-right:.5rem; }
-  .profile-pill .badge { font-size:.7rem; padding:.2rem .45rem; border-radius:999px; border:1px solid #2e3d55; margin-left:.3rem; }
-  .profile-pill .badge.verify { background:#1f2a3d; border-color:#30527a; color:#7cc4ff; }
-  .profile-pill .badge.premium { background:#2a1f3d; border-color:#55307a; color:#d7a6ff; }
-  .profile-pill .mini { margin-left:.4rem; font-size:.7rem; background:#243249; border:1px solid #2e3d55; color:#fff; padding:.25rem .5rem; border-radius:8px; cursor:pointer; }
+  .profile-pill .badge { font-size:.7rem; padding:.2rem .45rem; border-radius:999px; border:1px solid var(--color-border); margin-left:.3rem; }
+  .profile-pill .badge.verify { background:var(--color-accent-glow); border-color:var(--color-accent-glow); color:var(--color-text); }
+  .profile-pill .badge.premium { background:var(--color-accent); border-color:var(--color-accent); color:var(--color-glass); }
+  .profile-pill .mini { margin-left:.4rem; font-size:.7rem; background:var(--color-surface); border:1px solid var(--color-border); color:var(--color-text); padding:.25rem .5rem; border-radius:8px; cursor:pointer; }
 
-        @media (max-width: 768px) {
-          .algorithm-options {
-            grid-template-columns: 1fr;
-          }
-          
-          .algorithm-options button {
-            flex-direction: column;
-            text-align: center;
-            gap: 1rem;
-          }
+        .roadmap-main-heading {
+          max-width: 1300px;
+          margin: 2rem auto 1rem;
+          padding: 0 2rem;
+          text-align: center;
+        }
+
+        .roadmap-main-heading h2 {
+          font-size: 2.5rem;
+          margin: 0 0 1.5rem 0;
+          background: linear-gradient(45deg, var(--color-accent), var(--color-accent-glow));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+          font-weight: 700;
         }
       `}</style>
       <style jsx>{`
         .episodes-section { max-width:1300px; margin:0 auto; padding:0 2rem 3rem; }
         .ep-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
         .ep-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:1rem; }
-        .ep-card { background:#121a29; border:1px solid #28344d; border-radius:12px; overflow:hidden; box-shadow: 0 6px 20px rgba(0,0,0,.25); transition: transform .25s ease, box-shadow .25s ease; }
-        .ep-card:hover { transform: translateY(-4px); box-shadow: 0 10px 26px rgba(0,0,0,.35); }
-        .thumb { position:relative; aspect-ratio:16/9; overflow:hidden; background:#0e141f; }
+        .ep-card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:12px; overflow:hidden; box-shadow: 0 6px 20px var(--color-shadow); transition: transform .25s ease, box-shadow .25s ease; }
+        .ep-card:hover { transform: translateY(-4px); box-shadow: 0 10px 26px var(--color-shadow); border-color:var(--color-accent-glow); }
+        .thumb { position:relative; aspect-ratio:16/9; overflow:hidden; background:var(--color-bg-alt); }
         .thumb .bg { position:absolute; inset:0; background-size:cover; background-position:center; filter:brightness(.5) saturate(1.05); transform: scale(1.02); }
-        .thumb .overlay { position:absolute; inset:auto 0 0 0; padding:.75rem; background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,.0)); display:flex; flex-direction:column; gap:.35rem; }
-        .thumb .badge { align-self:flex-start; background:#243249; border:1px solid #2e3d55; color:#cfe7ff; font-weight:700; padding:.15rem .45rem; border-radius:6px; font-size:.8rem; }
-        .thumb .ep-title { font-weight:600; }
+        .thumb .overlay { position:absolute; inset:auto 0 0 0; padding:.75rem; background: linear-gradient(to top, var(--color-shadow), transparent); display:flex; flex-direction:column; gap:.35rem; }
+        .thumb .badge { align-self:flex-start; background:var(--color-accent); border:1px solid var(--color-accent); color:var(--color-glass); font-weight:700; padding:.15rem .45rem; border-radius:6px; font-size:.8rem; }
+        .thumb .ep-title { font-weight:600; color:var(--color-text); }
         .card-actions { display:flex; flex-wrap:wrap; gap:.4rem; padding:.6rem .75rem .8rem; }
-        .watch { background:#243249; border:1px solid #2e3d55; border-radius:8px; padding:.3rem .55rem; color:#fff; text-decoration:none; font-size:.8rem; }
-        .watch:hover { background:#2e3d55; }
-        .watch.platform.crunchyroll { border-color:#f78f1f55; }
-        .watch.platform.netflix { border-color:#e5091455; }
-        .watch.platform.disney { border-color:#1f80e055; }
-        .watch.platform.jiocinema { border-color:#ff006655; }
-        .watch.platform.youtube { border-color:#ff000055; }
-        .start-btn { position:relative; display:inline-flex; align-items:center; justify-content:center; padding:.55rem 1.1rem; min-width:120px; border-radius:14px; color:#fff; text-decoration:none; font-weight:700; letter-spacing:.5px; backdrop-filter: blur(10px); background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.12)); border:1px solid rgba(255,255,255,0.18); box-shadow: 0 8px 30px rgba(0,0,0,.35), 0 0 0 2px rgba(255,255,255,0.05) inset; overflow:hidden; }
-        .start-btn::before { content:''; position:absolute; inset:-2px; background: conic-gradient(from 0deg, #ff3d3d, #ff7a00, #ffe600, #00ff85, #00c3ff, #6a00ff, #ff3dff, #ff3d3d); filter: blur(14px); opacity:.35; z-index:0; }
-        .start-btn::after { content:''; position:absolute; inset:2px; border-radius:12px; background: rgba(8,12,20,0.65); z-index:0; }
-        .start-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 36px rgba(0,0,0,.45); }
-        .start-btn:focus-visible { outline: 2px solid #6bc5ff; outline-offset: 2px; }
-        .start-btn > * { position:relative; z-index:1; }
+        .watch { background:var(--color-glass); border:1px solid var(--color-border); border-radius:8px; padding:.3rem .55rem; color:var(--color-text); text-decoration:none; font-size:.8rem; transition:all .2s; }
+        .watch:hover { background:var(--color-accent-glow); border-color:var(--color-accent); }
+        .watch.platform.crunchyroll { border-color:var(--color-accent); }
+        .watch.platform.netflix { border-color:var(--color-accent-alt); }
+        .watch.platform.disney { border-color:var(--color-accent-glow); }
+        .watch.platform.jiocinema { border-color:var(--color-accent); }
+        .watch.platform.youtube { border-color:var(--color-accent); }
+        .start-btn { 
+          position: relative; 
+          display: inline-flex; 
+          align-items: center; 
+          justify-content: center; 
+          padding: 0.8rem 2rem; 
+          min-width: 120px; 
+          border-radius: 50px; 
+          color: #000000; 
+          text-decoration: none; 
+          font-weight: 700; 
+          letter-spacing: 1px; 
+          text-transform: uppercase;
+          border: none;
+          background: linear-gradient(135deg, #d4af37, #ffd700, #ffed4e); 
+          box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4); 
+          overflow: hidden; 
+          transition: all 0.3s ease; 
+          text-shadow: none;
+        }
+        .start-btn::before { 
+          content: ''; 
+          position: absolute; 
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+          transition: left 0.5s ease;
+        }
+        .start-btn::after { 
+          display: none;
+        }
+        .start-btn:hover { 
+          transform: translateY(-2px); 
+          box-shadow: 0 12px 30px rgba(212, 175, 55, 0.6);
+          background: linear-gradient(135deg, #ffd700, #ffed4e, #d4af37);
+          color: #000000;
+        }
+        .start-btn:hover::before {
+          left: 100%;
+        }
+        .start-btn:focus-visible { 
+          outline: 2px solid #ffd700; 
+          outline-offset: 2px; 
+        }
+        .start-btn > * { 
+          position: relative; 
+          z-index: 1; 
+        }
       `}</style>
       {/* dynamic background image for styled-jsx */}
       <style jsx>{`

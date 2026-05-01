@@ -1,86 +1,91 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 
-const UserProfile = () => {
-  const { user, logout, isAuthenticated } = useAuth();
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef(null);
-  const router = useRouter();
+const UserProfile = ({ collapsed }) => {
+  const { user, isAuthenticated, logout } = useAuth();
+  // Conditional router - only use on client-side
+  const router = typeof window !== 'undefined' ? useRouter() : null;
+  const [showMenu, setShowMenu] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const menuRef = useRef(null);
 
-  // Close dropdown when clicking outside
+  // Track mount state
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    setShowMenu(false);
     logout();
-    setShowDropdown(false);
-    router.push('/');
+    if (isMounted && router) {
+      router.push('/');
+    }
   };
 
-  const getInitials = (name) => {
-    if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
-
-  const getProfilePicture = () => {
-    // If user has Google profile picture, use it
-    if (user?.picture) return user.picture;
-    if (user?.avatar) return user.avatar;
-    return null;
-  };
-
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return (
       <div className="auth-buttons">
-        <Link href="/auth/login" className="login-btn">
-          Sign In
-        </Link>
-        <Link href="/auth/signup" className="signup-btn">
+        <button 
+          onClick={() => isMounted && router && router.push('/auth/login')}
+          className="login-btn"
+        >
+          Login
+        </button>
+        <button 
+          onClick={() => isMounted && router && router.push('/auth/signup')}
+          className="signup-btn"
+        >
           Sign Up
-        </Link>
+        </button>
         <style jsx>{`
           .auth-buttons {
             display: flex;
-            gap: 0.5rem;
             align-items: center;
+            gap: 0.5rem;
           }
           .login-btn, .signup-btn {
             padding: 0.5rem 1rem;
-            border-radius: 999px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            text-decoration: none;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
           }
           .login-btn {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid #2e3d55;
-            color: #fff;
+            background: transparent;
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+            position: relative;
+            z-index: 3;
           }
           .login-btn:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: #3a4e6d;
-            transform: translateY(-1px);
+            background: rgba(227, 199, 112, 0.1);
+            border-color: var(--luxury-gold);
+            box-shadow: 0 0 8px rgba(227, 199, 112, 0.3);
           }
           .signup-btn {
-            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+            background: linear-gradient(135deg, var(--luxury-gold), var(--luxury-rose));
+            color: white;
             border: 1px solid transparent;
-            color: #fff;
+            position: relative;
+            z-index: 3;
           }
           .signup-btn:hover {
-            background: linear-gradient(135deg, #ff5252, #26d0ce);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(78,205,196,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(227, 199, 112, 0.5);
           }
         `}</style>
       </div>
@@ -88,78 +93,79 @@ const UserProfile = () => {
   }
 
   return (
-    <div className="user-profile" ref={dropdownRef}>
-      <button 
-        className="profile-button"
-        onClick={() => setShowDropdown(!showDropdown)}
-        aria-expanded={showDropdown}
-        aria-haspopup="true"
+    <div className="user-profile" ref={menuRef}>
+      <div 
+        className="profile-trigger"
+        onClick={() => setShowMenu(!showMenu)}
       >
-        {getProfilePicture() ? (
-          <img 
-            src={getProfilePicture()} 
-            alt={`${user.username}'s profile`}
-            className="profile-picture"
-          />
-        ) : (
-          <div className="profile-avatar">
-            {getInitials(user.username || user.email)}
-          </div>
+        <div className="user-avatar">
+          {user.username?.[0]?.toUpperCase() || 'U'}
+        </div>
+        {!collapsed && (
+          <span className="user-name">{user.username}</span>
         )}
-        <span className="profile-name">{user.username || user.email?.split('@')[0]}</span>
-        <svg className="dropdown-arrow" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-          <path d="M6 8.5L2.5 5h7L6 8.5z"/>
+        <svg 
+          className="dropdown-icon" 
+          width="12" 
+          height="12" 
+          viewBox="0 0 12 12" 
+          fill="none"
+        >
+          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
-      </button>
+      </div>
 
-      {showDropdown && (
-        <div className="profile-dropdown">
-          <div className="dropdown-header">
-            <div className="user-info">
-              <strong>{user.username}</strong>
-              <span className="email">{user.email}</span>
+      {showMenu && (
+        <div className="profile-menu">
+          <div className="menu-header">
+            <div className="menu-avatar">
+              {user.username?.[0]?.toUpperCase() || 'U'}
             </div>
-            <div className="badges">
-              {user.verified && (
-                <span className="badge verified" title="Verified">
-                  ✓ Verified
-                </span>
-              )}
-              {!user.verified && (
-                <span className="badge unverified" title="Pending Verification">
-                  ⏳ Pending
-                </span>
-              )}
-              {user.premium && (
-                <span className="badge premium" title="Premium">
-                  ⭐ Premium
-                </span>
-              )}
+            <div className="menu-user-info">
+              <div className="menu-username">{user.username}</div>
+              <div className="menu-email">{user.email}</div>
             </div>
           </div>
-          <div className="dropdown-divider"></div>
-          <div className="dropdown-menu">
-            <Link href="/profile" className="dropdown-item">
-              <span>Profile Settings</span>
-            </Link>
-            <Link href="/recommendations" className="dropdown-item">
-              <span>My Recommendations</span>
-            </Link>
-            {!user.verified && (
-              <button className="dropdown-item">
-                <span>Verify Identity</span>
-              </button>
-            )}
-            {!user.premium && (
-              <button className="dropdown-item premium-action">
-                <span>Upgrade to Premium</span>
-              </button>
-            )}
-            <div className="dropdown-divider"></div>
-            <button className="dropdown-item logout" onClick={handleLogout}>
-              <span>Sign Out</span>
-            </button>
-          </div>
+          <div className="menu-divider"></div>
+          <button 
+            className="menu-item"
+            onClick={() => {
+              setShowMenu(false);
+              if (isMounted && router) {
+                router.push('/dashboard/user');
+              }
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            My Profile
+          </button>
+          <button 
+            className="menu-item"
+            onClick={() => {
+              setShowMenu(false);
+              if (isMounted && router) {
+                router.push('/dashboard/user');
+              }
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M14 8a6 6 0 11-12 0 6 6 0 0112 0z" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M10.5 6L7 9.5 5.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Preferences
+          </button>
+          <div className="menu-divider"></div>
+          <button 
+            className="menu-item logout"
+            onClick={handleLogout}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Logout
+          </button>
         </div>
       )}
 
@@ -167,143 +173,175 @@ const UserProfile = () => {
         .user-profile {
           position: relative;
         }
-        .profile-button {
+        .profile-trigger {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid #2e3d55;
-          color: #fff;
-          padding: 0.4rem 0.8rem;
-          border-radius: 999px;
+          padding: 0.5rem;
           cursor: pointer;
-          transition: all 0.2s ease;
-          font-size: 0.9rem;
+          border-radius: 8px;
+          transition: background 0.2s ease;
         }
-        .profile-button:hover {
-          background: rgba(255,255,255,0.1);
-          border-color: #3a4e6d;
-          transform: translateY(-1px);
+        .profile-trigger:hover {
+          background: rgba(227, 199, 112, 0.1);
+          border-radius: 12px;
         }
-        .profile-picture {
-          width: 24px;
-          height: 24px;
+        .user-avatar {
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
-          object-fit: cover;
-        }
-        .profile-avatar {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+          background: linear-gradient(135deg, var(--luxury-gold), var(--luxury-rose));
+          color: white;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 0.7rem;
+          font-weight: 700;
+          font-size: 0.875rem;
+          flex-shrink: 0;
+          box-shadow: 0 0 8px rgba(227, 199, 112, 0.4);
+          border: 2px solid rgba(255, 215, 0, 0.3);
+        }
+        .user-name {
+          font-size: 0.875rem;
           font-weight: 600;
-          color: #fff;
+          color: var(--color-text, white);
         }
-        .profile-name {
-          max-width: 120px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+        .dropdown-icon {
+          color: var(--color-text-dim);
+          transition: transform 0.2s ease, color 0.2s ease;
         }
-        .dropdown-arrow {
-          transition: transform 0.2s ease;
-          transform: ${showDropdown ? 'rotate(180deg)' : 'rotate(0deg)'};
+        .profile-trigger:hover .dropdown-icon {
+          color: var(--luxury-gold);
         }
-        .profile-dropdown {
+        .profile-menu {
           position: absolute;
           top: calc(100% + 8px);
           right: 0;
-          background: rgba(36,47,70,0.95);
-          backdrop-filter: blur(10px);
-          border: 1px solid #2e3d55;
+          min-width: 200px;
+          width: 200px;
+          background: var(--color-surface);
+          backdrop-filter: blur(20px) saturate(180%);
+          -webkit-backdrop-filter: blur(20px) saturate(180%);
           border-radius: 12px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-          min-width: 240px;
+          border: 2px solid transparent;
+          background-clip: padding-box;
+          box-shadow: 0 8px 32px var(--color-shadow), 0 0 0 1px var(--color-glass) inset;
+          padding: 0.5rem;
           z-index: 1000;
-          overflow: hidden;
+          animation: menuSlideIn 0.2s ease;
         }
-        .dropdown-header {
-          padding: 1rem;
-          background: rgba(255,255,255,0.02);
+        .profile-menu::before {
+          content: "";
+          position: absolute;
+          inset: -2px;
+          padding: 2px;
+          background: linear-gradient(135deg, var(--luxury-gold), var(--luxury-rose), var(--luxury-gold));
+          background-size: 200% 200%;
+          border-radius: inherit;
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: xor;
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          animation: goldenBorder 3s ease-in-out infinite;
+          z-index: -1;
+          pointer-events: none;
         }
-        .user-info strong {
-          display: block;
-          font-size: 0.95rem;
-          margin-bottom: 0.2rem;
+        @keyframes goldenBorder {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
         }
-        .user-info .email {
-          font-size: 0.8rem;
-          opacity: 0.7;
+        @keyframes menuSlideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
-        .badges {
-          margin-top: 0.5rem;
-          display: flex;
-          gap: 0.5rem;
-        }
-        .badge {
-          background: rgba(255,255,255,0.1);
-          padding: 0.2rem 0.5rem;
-          border-radius: 12px;
-          font-size: 0.7rem;
-          font-weight: 500;
-        }
-        .badge.verified {
-          background: rgba(76, 175, 80, 0.2);
-          color: #4caf50;
-        }
-        .badge.unverified {
-          background: rgba(255, 152, 0, 0.2);
-          color: #ff9800;
-        }
-        .badge.premium {
-          background: linear-gradient(135deg, rgba(255,193,7,0.2), rgba(255,152,0,0.2));
-          color: #ffc107;
-        }
-        .dropdown-divider {
-          height: 1px;
-          background: #2e3d55;
-          margin: 0;
-        }
-        .dropdown-menu {
-          padding: 0.5rem 0;
-        }
-        .dropdown-item {
+        .menu-header {
           display: flex;
           align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem;
+        }
+        .menu-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, var(--luxury-gold), var(--luxury-rose));
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 0.875rem;
+          flex-shrink: 0;
+          box-shadow: 0 0 8px rgba(227, 199, 112, 0.4);
+          border: 2px solid rgba(255, 215, 0, 0.3);
+        }
+        .menu-user-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .menu-username {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--color-text);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .menu-email {
+          font-size: 0.7rem;
+          color: var(--color-text-dim);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .menu-divider {
+          height: 1px;
+          background: linear-gradient(90deg, transparent, var(--luxury-gold), transparent);
+          margin: 0.5rem 0;
+          opacity: 0.3;
+        }
+        .menu-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
           width: 100%;
-          padding: 0.6rem 1rem;
-          background: none;
+          padding: 0.5rem 0.6rem;
+          background: transparent;
           border: none;
-          color: #fff;
-          text-decoration: none;
-          font-size: 0.9rem;
+          border-radius: 8px;
+          color: var(--color-text);
+          font-size: 0.8rem;
+          font-weight: 500;
           cursor: pointer;
-          transition: background 0.2s ease;
+          transition: all 0.2s ease;
+          text-align: left;
         }
-        .dropdown-item:hover {
-          background: rgba(255,255,255,0.05);
+        .menu-item:hover {
+          background: linear-gradient(90deg, rgba(227, 199, 112, 0.15), rgba(227, 199, 112, 0.05));
+          color: var(--color-text);
+          transform: translateX(4px);
         }
-        .dropdown-item.premium-action {
-          color: #ffc107;
+        .menu-item svg {
+          flex-shrink: 0;
+          opacity: 0.8;
+          width: 14px;
+          height: 14px;
         }
-        .dropdown-item.logout {
+        .menu-item:hover svg {
+          opacity: 1;
+        }
+        .menu-item.logout {
           color: #ff6b6b;
         }
-        .dropdown-item.logout:hover {
-          background: rgba(255,107,107,0.1);
-        }
-
-        @media (max-width: 768px) {
-          .profile-name {
-            display: none;
-          }
-          .profile-dropdown {
-            min-width: 200px;
-          }
+        .menu-item.logout:hover {
+          background: linear-gradient(90deg, rgba(255, 107, 107, 0.15), rgba(255, 107, 107, 0.05));
+          color: #ff4444;
         }
       `}</style>
     </div>
