@@ -2,12 +2,8 @@
   "name": "aniverse-frontend",
   "version": "1.0.0",
   "description": "AnimeVerse frontend application",
-<<<<<<< HEAD
-  "main": "pages/index.jsx",
-=======
   "type": "module",
   "private": true,
->>>>>>> origin/main
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -24,15 +20,7 @@
     "next": "^14.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-<<<<<<< HEAD
-    "gsap": "^3.12.2",
-    "axios": "^1.5.0",
     "swr": "^2.2.0",
-    "animejs": "^3.2.1",
-    "@stripe/stripe-js": "^2.2.0",
-=======
-    "swr": "^2.2.0",
->>>>>>> origin/main
     "three": "^0.161.0"
   },
   "devDependencies": {
