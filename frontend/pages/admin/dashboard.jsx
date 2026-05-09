@@ -1,23 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useRouter } from 'next/router';
+import { useAuth } from '../../src/contexts/AuthContext';
 
 const AdminDashboard = () => {
+  const router = useRouter();
+  const { user, token, loading: authLoading } = useAuth();
   const [users, setUsers] = useState([]);
   const [unverifiedUsers, setUnverifiedUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('unverified');
 
+  // Check if user is admin
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!authLoading && (!user || !user.isAdmin)) {
+      router.push('/auth/login');
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (token && user?.isAdmin) {
+      fetchData();
+    }
+  }, [token, user?.isAdmin]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      const headers = { Authorization: `Bearer ${token}` };
       const [unverifiedResponse, usersResponse] = await Promise.all([
-        axios.get('/api/admin/unverified'),
-        axios.get('/api/admin/users?limit=20')
+        axios.get('/api/admin/unverified', { headers }),
+        axios.get('/api/admin/users?limit=20', { headers })
       ]);
       
       setUnverifiedUsers(unverifiedResponse.data);
@@ -32,7 +46,8 @@ const AdminDashboard = () => {
 
   const handleVerifyUser = async (userId, verified = true) => {
     try {
-      await axios.post(`/api/admin/verify/${userId}`, { verified });
+      const headers = { Authorization: `Bearer ${token}` };
+      await axios.post(`/api/admin/verify/${userId}`, { verified }, { headers });
       // Refresh data
       fetchData();
     } catch (err) {
@@ -51,7 +66,7 @@ const AdminDashboard = () => {
     });
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="admin-dashboard">
         <div className="loading">Loading admin dashboard...</div>
