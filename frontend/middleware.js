@@ -1,7 +1,9 @@
+import { NextResponse } from 'next/server';
+
 // Simple middleware without Clerk
 export function middleware(request) {
-  // No authentication checks for now
-  return;
+  // No authentication checks for now — pass all requests through
+  return NextResponse.next();
 }
 
 export const config = {
