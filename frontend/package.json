@@ -2,7 +2,6 @@
   "name": "aniverse-frontend",
   "version": "1.0.0",
   "description": "AnimeVerse frontend application",
-  "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev",
